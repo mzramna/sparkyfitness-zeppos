@@ -3,21 +3,23 @@
 App para relógios Amazfit (Zepp OS 3+) que registra dados no relógio e sincroniza com um servidor [SparkyFitness](https://github.com/CodeWithCJ/SparkyFitness) self-hosted.
 
 ## Funcionalidades
-- 💧 Ingestão de água (200/300/500 ml)
-- 💊 Remédios
-- 🩸 Registro menstrual (início, fluxo, fim)
-- 🍽️ Registro alimentar básico (refeição)
-- 🔄 Sincronização: fila offline no relógio, enviada pelo celular (side service) ao servidor; só sai da fila o que o servidor confirmou
+Tudo o que aparece no relógio vem da **sua instância** — nada é pré-cadastrado:
+- 💧 Água: seus recipientes (`/api/water-containers`) → `POST /api/v2/measurements/water-intake`
+- 💊 Remédios: seus medicamentos ativos (`/api/v2/medications`) → `POST /api/v2/medications/entries`
+- 🩸 Ciclo: nível de fluxo do dia → `PUT /api/v2/cycle/logs/:data`
+- 🍽️ Alimentação: alimentos recentes/mais usados (`/api/foods`) + seus tipos de refeição (`/api/meal-types`) → `POST /api/food-entries/`
+- 🔄 Sincronizar: envia a fila offline e baixa o catálogo atualizado. Só sai da fila o que o servidor confirmou.
+
+## Por que não falar direto com o app Android do SparkyFitness?
+Analisei o `SparkyFitnessMobile` (Expo/React Native): ele **não expõe nenhuma interface para outros apps** — sem intents exportados, deep links que gravem dados, content provider ou servidor local; a credencial fica no SecureStore dele; o único módulo de relógio é para Apple Watch. Além disso, o side service do Zepp OS só consegue fazer HTTP, não chamar outros apps Android.
+
+Por isso o app usa **os mesmos endpoints e o mesmo esquema de autenticação (Bearer API key) que o app Android usa**: os dados aparecem nele imediatamente, como se tivessem sido lançados por ele. Se um dia o app Android expor uma API local, basta trocar `app-side/api.js`.
 
 ## Arquitetura
 ```
-Relógio (page/)  --BLE-->  App Zepp no celular (app-side/)  --HTTPS-->  SparkyFitness
-   fila local                 api.js mapeia registro → HTTP
+Relógio (page/)  --BLE-->  App Zepp no celular (app-side/)  --HTTPS-->  Instância SparkyFitness  <--  App Android SparkyFitness
+  fila + catálogo em cache        api.js
 ```
-- `utils/catalog.js` — botões rápidos (edite para seus remédios/porções)
-- `utils/queue.js` — fila persistente no relógio
-- `app-side/api.js` — **único** ponto de mapeamento para a API do servidor
-- `setting/` — URL do servidor e API key (configurados no app Zepp)
 
 ## Build
 ```bash
@@ -28,9 +30,10 @@ zeus preview  # QR code para instalar no relógio (modo desenvolvedor)
 ```
 
 ## Configuração
-No app Zepp → Perfil → seu relógio → App Settings → SparkyFitness: informe a URL do servidor e uma API key gerada no SparkyFitness.
+1. No SparkyFitness (web): Settings → API Keys → gerar chave com escopo **full**.
+2. No app Zepp → seu relógio → App Settings → SparkyFitness: URL da instância e a API key.
+3. No relógio: toque em **Sincronizar** para baixar seus recipientes, remédios, alimentos e refeições.
 
-## ⚠️ Pendências
-- Os payloads em `app-side/api.js` assumem o endpoint `/api/health-data`. **Confirme os tipos/campos aceitos pela sua versão do SparkyFitness** e ajuste o mapeamento (água costuma ser suportada; remédios, ciclo e refeições podem exigir endpoints próprios).
-- `appId` em `app.json` é provisório: gere um oficial no Zepp Developer Console.
-- Falta `assets/default/icon.png`.
+## Pendências
+- `appId` em `app.json` é provisório (gerar no Zepp Developer Console); falta `assets/default/icon.png`.
+- Não testado em dispositivo/simulador nem contra uma instância real.
