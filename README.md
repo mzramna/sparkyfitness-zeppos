@@ -35,5 +35,6 @@ zeus preview  # QR code para instalar no relógio (modo desenvolvedor)
 3. No relógio: toque em **Sincronizar** para baixar seus recipientes, remédios, alimentos e refeições.
 
 ## Pendências
-- `appId` em `app.json` é provisório (gerar no Zepp Developer Console); falta `assets/default/icon.png`.
+- `appId` em `app.json` é provisório (gerar no Zepp Developer Console); `assets/default/icon.png` é um placeholder.
+- `npm test` valida o mapeamento das requisições com `fetch` simulado (não substitui teste contra instância real).
 - Não testado em dispositivo/simulador nem contra uma instância real.
