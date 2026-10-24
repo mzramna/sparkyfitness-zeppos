@@ -1,5 +1,5 @@
 import { register } from 'node:module'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve as abs } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -7,12 +7,19 @@ import { pathToFileURL } from 'node:url'
 register('./hooks.mjs', import.meta.url)
 
 let n = 0
-// stubs: { sensors: 'fonte esm' } substitui ../utils/sensors.
+// Entradas que se registram no topo (Page(), AppSideService()...) precisam de instância nova a cada load;
+// as demais ficam compartilhadas, para a cobertura do Node enxergar um único módulo por arquivo.
+const REGISTERS = /^(Page|App|AppSideService|AppService|AppSettingsPage)\(/m
+
+// stubs: { sensors: 'fonte esm' } substitui ../utils/sensors (isola o grafo desse load).
 export function load(entry, stubs = {}) {
+  const url = pathToFileURL(abs(entry)).href
+  const hasStubs = Object.keys(stubs).length > 0
+  if (!hasStubs && !REGISTERS.test(readFileSync(abs(entry), 'utf8'))) return import(url)
   const dir = mkdtempSync(join(tmpdir(), 'zos-stubs-'))
   for (const [name, src] of Object.entries(stubs)) writeFileSync(join(dir, `${name}.js`), src)
-  const q = new URLSearchParams({ r: String(++n), stubs: pathToFileURL(dir).href.replace('file://', '') })
-  return import(`${pathToFileURL(abs(entry)).href}?${q}`)
+  const q = new URLSearchParams({ r: String(++n), stubs: hasStubs ? pathToFileURL(dir).href.replace('file://', '') : '' })
+  return import(`${url}?${q}`)
 }
 
 // Estado fake novo a cada teste. Páginas/serviços registram-se via Page()/AppSideService()/AppService().

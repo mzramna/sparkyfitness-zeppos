@@ -1,6 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { dueDoses } from '../app-side/doses.js'
+import { load } from './helpers.mjs'
+
+const { dueDoses } = await load('app-side/doses.js')
 
 const NOW = new Date(2026, 9, 24, 10, 0) // sábado
 const med = (schedules, extra = {}) => ({ id: 'm', name: 'Med', dose_amount: 5, dose_unit: 'mg', is_active: true, schedules, ...extra })

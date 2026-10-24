@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { reset, load } from './helpers.mjs'
 import { routes } from './fixtures/full-routes.mjs'
+import { sweepApi } from './fixtures/api-sweep.mjs'
 
 const S = { server: 'https://sf.test/', apiKey: 'K' }
 const NOW = new Date(2026, 9, 24, 10, 0)
@@ -138,4 +139,11 @@ test('health vai como array com source zepp; tipo desconhecido é ignorado', asy
 test('erro HTTP no envio rejeita', async () => {
   const { api } = await setup({ routes: { '/api/mood': { status: 503, body: '' } } })
   await assert.rejects(api.sendEntry(entry('mood', { mood_value: 3 })), /HTTP 503/)
+})
+
+// Cobertura numa instância só (ver test/fixtures/api-sweep.mjs).
+test('cobertura: fetchToday e envios percorrem os ramos numa instância', async () => {
+  const settings = { ...S }
+  const Z = reset({ settings, routes: routes() })
+  await sweepApi(await load('app-side/api.js'), Z, settings)
 })

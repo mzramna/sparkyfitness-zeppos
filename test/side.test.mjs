@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { reset, load } from './helpers.mjs'
 import { routes } from './fixtures/full-routes.mjs'
+import { sweepApi } from './fixtures/api-sweep.mjs'
 
 const S = { server: 'https://sf.test', apiKey: 'K' }
 const e = (id, type, data) => ({ id, type, data, ts: '2026-10-24T12:00:00.000Z', date: '2026-10-24', time: '09:00' })
@@ -52,4 +53,22 @@ test('método inválido e credencial ausente', async () => {
   const r = await run(Z, 'sync', { entries: [e('1', 'mood', { mood_value: 3 })] })
   assert.deepEqual(r.synced, [])
   assert.match(r.error, /configure servidor/)
+})
+
+// Mesmo motivo do teste de cobertura em api.test.mjs: o relatório lê só a última instância carregada.
+test('cobertura: onRequest percorre os ramos numa instância', async () => {
+  const settings = { ...S }
+  const Z = reset({ settings, routes: { ...withToday(), '/api/mood': {}, '/api/v2/measurements/water-intake': {} } })
+  await load('app-side/index.js')
+  const req = async (method, params) => { let out; await Z.side.onRequest({ method, params }, (_, r) => { out = r }); return out }
+  assert.deepEqual((await req('sync', undefined)).synced, []) // sem params
+  assert.deepEqual((await req('sync', { entries: [e('1', 'mood', { mood_value: 3 })] })).synced, ['1'])
+  Z.routes = { '/api/mood': {}, '/api/v2/measurements/water-intake': { status: 500, body: '' } }
+  assert.match((await req('sync', { entries: [e('2', 'water', { container_id: 3, change: 1 })] })).error, /HTTP 500/)
+  assert.deepEqual(await req('outro'), { error: 'método inválido' })
+  settings.server = ''
+  assert.match((await req('sync', { entries: [] })).error, /configure servidor/)
+  // api.js/doses.js: a última instância carregada é a que o relatório mostra
+  settings.server = 'https://sf.test'
+  await sweepApi(await load('app-side/api.js'), Z, settings)
 })

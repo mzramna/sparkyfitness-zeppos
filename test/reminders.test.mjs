@@ -63,3 +63,30 @@ test('serviço: param inválido não quebra e sai', async () => {
   assert.equal(Z.notified[0].content, '')
   assert.equal(Z.calls.filter((c) => c[0] === 'exit').length, 2)
 })
+
+// Mesmo motivo do teste de cobertura em api.test.mjs: o relatório lê só a última instância carregada.
+test('cobertura: reminders percorre os ramos numa instância', async () => {
+  const Z = reset()
+  const { pickReminders, scheduleReminders } = await load('utils/reminders.js')
+  assert.deepEqual(pickReminders(undefined), []) // now padrão
+  Z.storage._map.clear()
+  assert.equal(scheduleReminders([dose()], NOW).length, 1) // sem cache salvo: getItem devolve o padrão vazio
+  Z.storage.setItem('alarms', 'null')
+  assert.equal(scheduleReminders([dose()]).length, 1) // cache 'null' vira []
+  Z.alarm.set = () => 0
+  assert.deepEqual(scheduleReminders([dose({ schedule_id: 'x' })], NOW), [])
+})
+
+test('cobertura: med_reminder percorre os ramos numa instância', async () => {
+  const Z = reset()
+  await load('app-service/med_reminder.js')
+  const d = dose()
+  Z.service.onInit(JSON.stringify(d))
+  Z.service.onInit(Z.notified[0].actions[0].param) // Tomei
+  Z.service.onInit(Z.notified[0].actions[1].param) // Pular
+  Z.service.onInit('{x')
+  Z.service.onInit(JSON.stringify({ label: 'Sem dose', dose_unit: 'mg' }))
+  assert.equal(Z.storage.getItem('queue').length > 0, true)
+  assert.equal(Z.notified.at(-1).content, 'mg')
+  assert.equal(Z.calls.filter((c) => c[0] === 'exit').length, 5)
+})
