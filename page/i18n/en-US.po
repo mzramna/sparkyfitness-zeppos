@@ -1,0 +1,81 @@
+msgid "dash.active"
+msgstr "Active"
+
+msgid "dash.burned"
+msgstr "Burned"
+
+msgid "dash.cycle"
+msgstr "Cycle"
+
+msgid "dash.disconnected"
+msgstr "Phone disconnected"
+
+msgid "dash.eaten"
+msgstr "Eaten"
+
+msgid "dash.error"
+msgstr "Error"
+
+msgid "dash.fasting"
+msgstr "Fasting"
+
+msgid "dash.food"
+msgstr "Food"
+
+msgid "dash.meds"
+msgstr "Meds"
+
+msgid "dash.mood"
+msgstr "Mood"
+
+msgid "dash.noDoses"
+msgstr "no doses"
+
+msgid "dash.over"
+msgstr "Over goal"
+
+msgid "dash.remaining"
+msgstr "Remaining"
+
+msgid "dash.sent"
+msgstr "sent"
+
+msgid "dash.symptom"
+msgstr "Symptoms"
+
+msgid "dash.sync"
+msgstr "Sync"
+
+msgid "dash.syncToDownload"
+msgstr "Sync to download your data"
+
+msgid "dash.syncing"
+msgstr "Syncing..."
+
+msgid "dash.water"
+msgstr "Water"
+
+msgid "fast.end"
+msgstr "End fast"
+
+msgid "fast.noPrefs"
+msgstr "No protocol configured"
+
+msgid "fast.protocol"
+msgstr "Protocol"
+
+msgid "fast.remaining"
+msgstr "Remaining"
+
+msgid "fast.start"
+msgstr "Start fast"
+
+msgid "list.empty"
+msgstr "Nothing set up on your instance"
+
+msgid "list.prn"
+msgstr "As needed"
+
+msgid "list.registered"
+msgstr "Logged"
+

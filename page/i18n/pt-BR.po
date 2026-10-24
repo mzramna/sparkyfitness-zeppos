@@ -1,0 +1,81 @@
+msgid "dash.active"
+msgstr "Em andamento"
+
+msgid "dash.burned"
+msgstr "Queimadas"
+
+msgid "dash.cycle"
+msgstr "Ciclo"
+
+msgid "dash.disconnected"
+msgstr "Celular desconectado"
+
+msgid "dash.eaten"
+msgstr "Consumidas"
+
+msgid "dash.error"
+msgstr "Erro"
+
+msgid "dash.fasting"
+msgstr "Jejum"
+
+msgid "dash.food"
+msgstr "Alimentação"
+
+msgid "dash.meds"
+msgstr "Remédios"
+
+msgid "dash.mood"
+msgstr "Humor"
+
+msgid "dash.noDoses"
+msgstr "sem doses"
+
+msgid "dash.over"
+msgstr "Acima da meta"
+
+msgid "dash.remaining"
+msgstr "Restantes"
+
+msgid "dash.sent"
+msgstr "enviados"
+
+msgid "dash.symptom"
+msgstr "Sintomas"
+
+msgid "dash.sync"
+msgstr "Sincronizar"
+
+msgid "dash.syncToDownload"
+msgstr "Sincronize para baixar seus dados"
+
+msgid "dash.syncing"
+msgstr "Sincronizando..."
+
+msgid "dash.water"
+msgstr "Água"
+
+msgid "fast.end"
+msgstr "Encerrar jejum"
+
+msgid "fast.noPrefs"
+msgstr "Sem protocolo configurado"
+
+msgid "fast.protocol"
+msgstr "Protocolo"
+
+msgid "fast.remaining"
+msgstr "Restante"
+
+msgid "fast.start"
+msgstr "Iniciar jejum"
+
+msgid "list.empty"
+msgstr "Nada cadastrado na sua instância"
+
+msgid "list.prn"
+msgstr "Avulso"
+
+msgid "list.registered"
+msgstr "Registrado"
+

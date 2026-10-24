@@ -7,7 +7,7 @@
     "dev": "zeus dev",
     "build": "zeus build",
     "preview": "zeus preview",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test --experimental-test-coverage --test-coverage-lines=90 --test-coverage-branches=80 --test-coverage-exclude='test/**' test/*.test.mjs"
   },
   "dependencies": {
     "@zeppos/zml": "^0.0.27"
@@ -15,5 +15,8 @@
   "devDependencies": {
     "@zeppos/device-types": "^3.0.0",
     "esbuild": "^0.24.0"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
