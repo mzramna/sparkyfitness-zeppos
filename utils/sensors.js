@@ -1,6 +1,6 @@
 // Lê os sensores do relógio e enfileira 'health' (um item pendente por data+tipo; o servidor faz upsert por dia).
 import { Step, Calorie, HeartRate, Sleep } from '@zos/sensor'
-import { load, push, remove } from './queue'
+import { load, loadToday, push, remove } from './queue'
 
 // Sensor indisponível ou sem leitura vira undefined e é ignorado.
 const read = (fn) => { try { return fn() } catch (e) { return undefined } }
@@ -20,6 +20,11 @@ function sleepData(now) {
 }
 
 export function collectHealth(now = new Date()) {
+  // Padrão (Health Connect): não coleta; descarta o que ficou pendente de antes da troca de modo.
+  if ((loadToday()?.sensorMode ?? 'health-connect') !== 'direct') {
+    remove(load().filter((e) => e.type === 'health').map((e) => e.id))
+    return
+  }
   const readings = [
     ['steps', () => ({ value: new Step().getCurrent() })],
     ['active_calories', () => ({ value: new Calorie().getCurrent() })],

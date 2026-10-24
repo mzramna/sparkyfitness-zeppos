@@ -15,6 +15,7 @@ Page(BasePage({
     const text = (p) => hmUI.createWidget(hmUI.widget.TEXT, { x: 40, w: 400, h: 50, text_size: 24, color: theme.text,
       align_h: hmUI.align.CENTER_H, text_style: hmUI.text_style.WRAP, ...p })
     if (!T) return text({ y: 180, h: 120, color: theme.muted, text: t('dash.syncToDownload') })
+    hmUI.createWidget(hmUI.widget.IMG, { x: 224, y: 96, src: 'icons/timer-outline.png' })
     const f = T.fasting
     const prefs = T.fastingPrefs
     if (f) {

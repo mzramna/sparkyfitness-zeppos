@@ -55,6 +55,40 @@ test('método inválido e credencial ausente', async () => {
   assert.match(r.error, /configure servidor/)
 })
 
+test('sensorMode: padrão health-connect sem valor salvo, vai no today e na resposta', async () => {
+  const Z = reset({ settings: S, routes: withToday() })
+  const r = await run(Z, 'sync', {})
+  assert.equal(r.sensorMode, 'health-connect')
+  assert.equal(r.today.sensorMode, 'health-connect')
+})
+
+test('modo health-connect: health não é enviado, mas o id entra em synced; demais tipos passam', async () => {
+  const Z = reset({ settings: S, routes: { ...withToday(), '/api/mood': {}, '/api/v2/measurements/water-intake': {} } })
+  const r = await run(Z, 'sync', { entries: [e('1', 'mood', { mood_value: 3 }), e('2', 'health', { type: 'steps', value: 4200 }),
+    e('3', 'water', { container_id: 3, change: 1 }), e('4', 'health', { type: 'SleepSession', value: 420 })] })
+  assert.deepEqual(r.synced, ['1', '2', '3', '4'])
+  assert.equal(Z.fetched.filter((f) => f.url.includes('/api/health-data')).length, 0)
+  assert.deepEqual(Z.fetched.slice(0, 2).map((f) => f.url), ['https://sf.test/api/mood', 'https://sf.test/api/v2/measurements/water-intake'])
+  assert.equal(r.sensorMode, 'health-connect')
+})
+
+test('modo direct: health é enviado com source zepp e sensorMode volta direct', async () => {
+  const Z = reset({ settings: { ...S, sensorMode: 'direct' }, routes: { ...withToday(), '/api/health-data': {} } })
+  const r = await run(Z, 'sync', { entries: [e('1', 'health', { type: 'steps', value: 4200 })] })
+  assert.deepEqual(r.synced, ['1'])
+  assert.deepEqual(Z.fetched[0].body, [{ type: 'steps', value: 4200, date: '2026-10-24', source: 'zepp' }])
+  assert.equal(r.sensorMode, 'direct')
+  assert.equal(r.today.sensorMode, 'direct')
+})
+
+test('erro na sincronização também devolve sensorMode', async () => {
+  const Z = reset({ settings: { ...S, sensorMode: 'direct' }, routes: { '/api/mood': {}, '/api/v2/measurements/water-intake': { status: 500, body: '' } } })
+  const r = await run(Z, 'sync', { entries: [e('1', 'mood', { mood_value: 3 }), e('2', 'water', { container_id: 3, change: 1 })] })
+  assert.deepEqual(r.synced, ['1'])
+  assert.match(r.error, /HTTP 500/)
+  assert.equal(r.sensorMode, 'direct')
+})
+
 // Mesmo motivo do teste de cobertura em api.test.mjs: o relatório lê só a última instância carregada.
 test('cobertura: onRequest percorre os ramos numa instância', async () => {
   const settings = { ...S }

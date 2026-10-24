@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { load, reset, tap } from './helpers.mjs'
+import { theme } from '../utils/theme.js'
 
 const fixture = () => JSON.parse(readFileSync(new URL('./fixtures/today.json', import.meta.url)))
 // Módulos reais (utils/sensors.js, utils/reminders.js). Sensores sem configuração lançam erro (falha de sensor);
@@ -97,10 +98,19 @@ test('sync coleta saúde dos sensores e enfileira antes de enviar', async () => 
   const sent = []
   const sensors = { Step: { getCurrent: () => 4321 }, Calorie: { getCurrent: () => 0 }, HeartRate: { getResting: () => 60 },
     Sleep: { updateInfo() {}, getInfo: () => ({ totalTime: 0 }) } }
-  const { Z } = await open('page/index.js', { today: fixture(), sensors, request: async (m) => { sent.push(m); return { synced: [] } } })
+  const { Z } = await open('page/index.js', { today: { ...fixture(), sensorMode: 'direct' }, sensors, request: async (m) => { sent.push(m); return { synced: [] } } })
   tap(Z, 'dash.sync'); await tick(); await tick()
   assert.deepEqual(sent[0].params.entries.filter((e) => e.type === 'health').map((e) => [e.data.type, e.data.value]),
     [['steps', 4321], ['resting_heart_rate', 60]])
+})
+
+test('sync no modo padrão (Health Connect) não coleta nem envia dados de saúde do relógio', async () => {
+  const sent = []
+  const sensors = { Step: { getCurrent: () => 4321 }, Calorie: { getCurrent: () => 0 }, HeartRate: { getResting: () => 60 },
+    Sleep: { updateInfo() {}, getInfo: () => ({ totalTime: 0 }) } }
+  const { Z } = await open('page/index.js', { today: fixture(), sensors, request: async (m) => { sent.push(m); return { synced: [] } } })
+  tap(Z, 'dash.sync'); await tick(); await tick()
+  assert.equal(sent[0].params.entries.filter((e) => e.type === 'health').length, 0)
 })
 
 test('sync: erro do servidor, falha do lembrete e celular desconectado', async () => {
@@ -509,6 +519,49 @@ test('jejum ativo sem preferências ainda permite encerrar', async () => {
 
 // ---- fluxos completos: uma única carga de cada página, para que a cobertura medida
 // (que reporta a última carga do arquivo) enxergue todos os caminhos ----
+
+const imgs = (Z) => Z.widgets.filter((w) => w.type === 'IMG')
+const srcs = (Z) => imgs(Z).map((w) => w.props.src).sort()
+test('dashboard: logo no topo e um ícone por cartão, água e sincronizar', async () => {
+  const { Z } = await open('page/index.js', { today: fixture() })
+  assert.ok(imgs(Z).some((w) => w.props.src === 'logo.png' && w.props.x === 216 && w.props.y === 8))
+  assert.deepEqual(srcs(Z).filter((s) => s !== 'logo.png'), [
+    'icons/happy-outline.png', 'icons/leaf-outline.png', 'icons/medkit-outline.png', 'icons/medkit-outline.png',
+    'icons/restaurant.png', 'icons/sync.png', 'icons/timer-outline.png', 'icons/water.png'
+  ].sort())
+  // o ícone fica à esquerda do botão do cartão, na mesma linha
+  const meds = Z.widgets.find((w) => String(w.props.text).startsWith('dash.meds'))
+  const icon = imgs(Z).find((w) => w.props.src === 'icons/medkit-outline.png' && w.props.y === meds.props.y + 12)
+  assert.ok(icon && icon.props.x < meds.props.x)
+})
+
+test('dashboard sem cache: logo grande no centro e botão Sincronizar na cor da marca', async () => {
+  const { Z } = await open('page/index.js')
+  assert.ok(imgs(Z).some((w) => w.props.src === 'logo.png' && w.props.x === 180 && w.props.y === 16))
+  const sync = Z.widgets.find((w) => String(w.props.text).startsWith('dash.sync ('))
+  assert.equal(sync.props.normal_color, theme.brand)
+  assert.deepEqual(srcs(Z), ['icons/sync.png', 'logo.png'])
+})
+
+test('lista: ícone do cabeçalho segue a tela; sem chave não cria ícone', async () => {
+  for (const [key, src] of [['water', 'icons/water.png'], ['meds', 'icons/medkit-outline.png'], ['dose', 'icons/medkit-outline.png'],
+    ['cycle', 'icons/leaf-outline.png'], ['mood', 'icons/happy-outline.png'], ['symptom', 'icons/medkit-outline.png'],
+    ['food', 'icons/restaurant.png'], ['meal', 'icons/restaurant.png']]) {
+    const { Z } = await open('page/list.js', { today: fixture(), params: { key } })
+    assert.deepEqual(srcs(Z), [src], key)
+  }
+  const { Z } = await open('page/list.js', { params: { key: 'water' } })
+  assert.deepEqual(srcs(Z), ['icons/water.png'])
+  const none = await open('page/list.js')
+  assert.deepEqual(srcs(none.Z), [])
+})
+
+test('jejum: ícone do cronômetro acima do anel, com ou sem jejum ativo', async () => {
+  const { Z } = await open('page/fasting.js', { today: fixture() })
+  assert.ok(imgs(Z).some((w) => w.props.src === 'icons/timer-outline.png' && w.props.y === 96))
+  const none = await open('page/fasting.js')
+  assert.deepEqual(srcs(none.Z), [])
+})
 
 test('dashboard numa mesma carga: cache, sem cache, metas zeradas, sem recipientes e sync com falhas', async () => {
   const Z = reset()

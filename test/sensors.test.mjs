@@ -1,8 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { load, reset } from './helpers.mjs'
+import { load, reset as resetBase } from './helpers.mjs'
 
 const queue = () => JSON.parse(globalThis.__zos.storage.getItem('queue', '[]'))
+// Os testes de coleta rodam no modo direto; o padrão (Health Connect) tem testes próprios no fim.
+const reset = (o) => { const Z = resetBase(o); Z.storage.setItem('today', JSON.stringify({ sensorMode: 'direct' })); return Z }
 const now = new Date(2026, 9, 24, 10, 0)
 const all = {
   Step: { getCurrent: () => 4200 }, Calorie: { getCurrent: () => 310 }, HeartRate: { getResting: () => 58 },
@@ -93,4 +95,23 @@ test('sono que começa e termina no mesmo dia mantém a data de hoje para bedtim
   assert.equal(new Date(s.bedtime).getDate(), 24)
   assert.equal(new Date(s.wake_time).getHours(), 23)
   assert.equal(s.sleep_score, 50)
+})
+
+test('padrão Health Connect (sem cache): não enfileira nada', async () => {
+  resetBase({ sensors: all })
+  const { collectHealth } = await load('utils/sensors.js')
+  collectHealth(now)
+  assert.equal(queue().length, 0)
+})
+
+test('health-connect: não enfileira e tira os health pendentes, mantendo os demais tipos', async () => {
+  const Z = resetBase({ sensors: all })
+  Z.storage.setItem('today', JSON.stringify({ calories: {} })) // cache antigo, sem sensorMode = padrão
+  Z.storage.setItem('queue', JSON.stringify([
+    { id: 'h1', type: 'health', data: { type: 'steps', value: 1 }, date: '2026-10-24' },
+    { id: 'w1', type: 'water', data: { container_id: 3, change: 1 }, date: '2026-10-24' }
+  ]))
+  const { collectHealth } = await load('utils/sensors.js')
+  collectHealth(now)
+  assert.deepEqual(queue().map((e) => e.id), ['w1'])
 })
