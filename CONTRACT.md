@@ -1,7 +1,7 @@
 # Contrato relógio ⇄ side service
 
 Mensagem `sync` (relógio → celular): `{ entries: QueueItem[] }`
-Resposta: `{ synced: string[], today?: Today, error?: string }` — `synced` só contém ids confirmados pelo servidor.
+Resposta: `{ synced: string[], today?: Today, sensorMode: 'health-connect' | 'direct', error?: string }` — `synced` só contém ids confirmados pelo servidor, mais os ids de `health` descartados fora do modo `direct` (o relógio os tira da fila). `sensorMode` vem também na resposta de erro.
 
 ## QueueItem.data por `type`
 | type | data |
@@ -14,7 +14,7 @@ Resposta: `{ synced: string[], today?: Today, error?: string }` — `synced` só
 | symptom | `{ symptom_id, name }` |
 | fast_start | `{ fasting_type, target_end_time }` |
 | fast_end | `{}` |
-| health | `{ type: 'steps'\|'active_calories'\|'resting_heart_rate'\|'SleepSession', value, ...extra }` |
+| health | `{ type: 'steps'\|'active_calories'\|'resting_heart_rate'\|'SleepSession', value, ...extra }`. Só é enfileirado com `today.sensorMode === 'direct'`; fora dele o celular não envia, mas confirma o id |
 
 ## Today (cache `today` no relógio)
 ```
@@ -32,6 +32,7 @@ Resposta: `{ synced: string[], today?: Today, error?: string }` — `synced` só
   fastingPrefs: { fasting_type, hours } | null,
   symptoms: [{ id, name }],
   foods: [{ food_id, name, variant_id, quantity, unit }],  // favoritos, recentes, mais usados (sem duplicar)
-  mealTypes: [{ id, name }]
+  mealTypes: [{ id, name }],
+  sensorMode: 'health-connect' | 'direct'  // configuração do app Zepp; ausente no cache antigo = 'health-connect'
 }
 ```
