@@ -34,6 +34,9 @@ zeus preview  # QR code para instalar no relógio (modo desenvolvedor)
 2. No app Zepp → seu relógio → App Settings → SparkyFitness: URL da instância e a API key.
 3. No relógio: toque em **Sincronizar** para baixar seus recipientes, remédios, alimentos e refeições.
 
+## Health Connect
+Passos, FC, sono e calorias do relógio chegam ao SparkyFitness pelo Health Connect por padrão. Guia de ativação: [docs/health-connect.md](docs/health-connect.md).
+
 ## Pendências
 - `appId` em `app.json` é provisório (gerar no Zepp Developer Console); `assets/default/icon.png` é um placeholder.
 
