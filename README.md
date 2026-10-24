@@ -36,5 +36,9 @@ zeus preview  # QR code para instalar no relógio (modo desenvolvedor)
 
 ## Pendências
 - `appId` em `app.json` é provisório (gerar no Zepp Developer Console); `assets/default/icon.png` é um placeholder.
-- `npm test` valida o mapeamento das requisições com `fetch` simulado (não substitui teste contra instância real).
+
 - Não testado em dispositivo/simulador nem contra uma instância real.
+
+## Testes
+`npm test` roda `node:test` (sem dependências) com cobertura e exige ≥90% de linhas e ≥80% de branches **por arquivo** do app (`scripts/test.mjs`). Os módulos reais são importados com `@zos/*` trocados por fakes (`test/hooks.mjs`, `test/helpers.mjs`). Contrato relógio ⇄ celular em `CONTRACT.md`.
+Não coberto: layout em pixels no relógio, BLE real e disparo real de alarme/notificação.
