@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gera assets/default/ a partir da arte oficial do SparkyFitness (script de dev, não roda no relógio).
+"""Gera assets/default.w480-r/ a partir da arte oficial do SparkyFitness (script de dev, não roda no relógio).
 
   python3 -I scripts/icons.py <SparkyFitnessMobile/assets/icons/adaptiveicon.png> <ionicons/dist/svg>
 
@@ -12,7 +12,7 @@
 import json, os, subprocess, sys
 from PIL import Image, ImageDraw
 
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'default')
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'default.w480-r')  # pasta = <target>.<sr>-<st> do app.json v3
 BRAND = (0xE5, 0x31, 0x36)  # vermelho do símbolo, amostrado do adaptiveicon.png
 ACCENT = (0x42, 0x7C, 0xF0)  # theme.accent
 WATER = (0x47, 0x99, 0xC2)   # theme.water

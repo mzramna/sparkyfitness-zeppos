@@ -47,6 +47,6 @@ Passos, FC, sono e calorias do relógio chegam ao SparkyFitness pelo Health Conn
 Não coberto: layout em pixels no relógio, BLE real e disparo real de alarme/notificação.
 
 ## Ícone e licença
-- `assets/default/icon.png` (248×248) e `logo.png` usam o símbolo oficial do SparkyFitness (`SparkyFitnessMobile/assets/icons/adaptiveicon.png`, do repositório [CodeWithCJ/SparkyFitness](https://github.com/CodeWithCJ/SparkyFitness)). A cor da marca é `theme.brand` (`#E53136`, amostrada desse PNG).
-- Os ícones dos cartões em `assets/default/icons/` são [Ionicons](https://ionic.io/ionicons) (MIT), os mesmos nomes usados pelo app Android. `python3 -I scripts/icons.py` regenera tudo (dev only).
+- `assets/default.w480-r/icon.png` (248×248) e `logo.png` usam o símbolo oficial do SparkyFitness (`SparkyFitnessMobile/assets/icons/adaptiveicon.png`, do repositório [CodeWithCJ/SparkyFitness](https://github.com/CodeWithCJ/SparkyFitness)). A cor da marca é `theme.brand` (`#E53136`, amostrada desse PNG).
+- Os ícones dos cartões em `assets/default.w480-r/icons/` são [Ionicons](https://ionic.io/ionicons) (MIT), os mesmos nomes usados pelo app Android. `python3 -I scripts/icons.py` regenera tudo (dev only).
 - O SparkyFitness é distribuído para **uso não comercial**. Este app é gratuito e não comercial; se isso mudar, o ícone precisa ser trocado.
