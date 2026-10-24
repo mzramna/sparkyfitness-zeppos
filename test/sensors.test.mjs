@@ -54,3 +54,43 @@ test('sono depois da meia-noite fica no mesmo dia; sono sem duração é ignorad
   ;(await load('utils/sensors.js')).collectHealth(now)
   assert.equal(queue().length, 0)
 })
+
+test('sensor que lança exceção na leitura é ignorado sem derrubar os outros', async () => {
+  reset({ sensors: {
+    Step: { getCurrent() { throw new Error('sem leitura') } },
+    Calorie: { getCurrent: () => 0 },
+    HeartRate: { getResting: () => 61 },
+    Sleep: { updateInfo() { throw new Error('falhou') }, getInfo: () => ({}) }
+  } })
+  const { collectHealth } = await load('utils/sensors.js')
+  collectHealth(now)
+  assert.deepEqual(queue().map((e) => e.data.type), ['resting_heart_rate'])
+  assert.equal(queue()[0].data.value, 61)
+})
+
+test('coleta sem argumento usa a data atual', async () => {
+  reset({ sensors: { Step: { getCurrent: () => 10 } } })
+  const { collectHealth } = await load('utils/sensors.js')
+  collectHealth()
+  const [item] = queue()
+  assert.equal(item.data.value, 10)
+  assert.equal(item.date, new Date().toLocaleDateString('sv-SE'))
+})
+
+test('pendente de outro tipo no mesmo dia não é removido pela nova coleta', async () => {
+  reset({ sensors: { Step: { getCurrent: () => 100 }, HeartRate: { getResting: () => 60 } } })
+  const { collectHealth } = await load('utils/sensors.js')
+  collectHealth(now)
+  collectHealth(now)
+  assert.deepEqual(queue().map((e) => e.data.type).sort(), ['resting_heart_rate', 'steps'])
+})
+
+test('sono que começa e termina no mesmo dia mantém a data de hoje para bedtime', async () => {
+  reset({ sensors: { Sleep: { updateInfo() {}, getInfo: () => ({ totalTime: 60, deepTime: 10, score: 50, startTime: 22 * 60, endTime: 23 * 60 }) } } })
+  const { collectHealth } = await load('utils/sensors.js')
+  collectHealth(now)
+  const s = queue()[0].data
+  assert.equal(new Date(s.bedtime).getDate(), 24)
+  assert.equal(new Date(s.wake_time).getHours(), 23)
+  assert.equal(s.sleep_score, 50)
+})

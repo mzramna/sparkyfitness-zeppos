@@ -14,7 +14,7 @@ export const saveToday = (t) => write('today', t)
 
 export function push(type, data, d = new Date()) {
   const q = load()
-  q.push({ id: `${d.getTime()}-${q.length}`, type, data, ts: d.toISOString(), date: localDate(d),
+  q.push({ id: `${d.getTime()}-${q.length}-${Math.random().toString(36).slice(2, 8)}`, type, data, ts: d.toISOString(), date: localDate(d),
     time: `${pad(d.getHours())}:${pad(d.getMinutes())}` })
   write('queue', q)
   return q.length
