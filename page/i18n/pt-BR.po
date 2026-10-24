@@ -4,6 +4,9 @@ msgstr "Em andamento"
 msgid "dash.burned"
 msgstr "Queimadas"
 
+msgid "dash.carbs"
+msgstr "Carboidratos"
+
 msgid "dash.cycle"
 msgstr "Ciclo"
 
@@ -19,6 +22,12 @@ msgstr "Erro"
 msgid "dash.fasting"
 msgstr "Jejum"
 
+msgid "dash.fat"
+msgstr "Gordura"
+
+msgid "dash.fiber"
+msgstr "Fibra"
+
 msgid "dash.food"
 msgstr "Alimentação"
 
@@ -33,6 +42,9 @@ msgstr "sem doses"
 
 msgid "dash.over"
 msgstr "Acima da meta"
+
+msgid "dash.protein"
+msgstr "Proteína"
 
 msgid "dash.remaining"
 msgstr "Restantes"
@@ -70,8 +82,41 @@ msgstr "Restante"
 msgid "fast.start"
 msgstr "Iniciar jejum"
 
+msgid "flow.heavy"
+msgstr "Intenso"
+
+msgid "flow.light"
+msgstr "Leve"
+
+msgid "flow.medium"
+msgstr "Médio"
+
+msgid "flow.none"
+msgstr "Nenhum"
+
+msgid "flow.spotting"
+msgstr "Manchas"
+
+msgid "list.cycle"
+msgstr "Ciclo"
+
+msgid "list.dose"
+msgstr "Dose"
+
 msgid "list.empty"
 msgstr "Nada cadastrado na sua instância"
+
+msgid "list.food"
+msgstr "Alimentação"
+
+msgid "list.meal"
+msgstr "Refeição"
+
+msgid "list.meds"
+msgstr "Remédios"
+
+msgid "list.mood"
+msgstr "Humor"
 
 msgid "list.prn"
 msgstr "Avulso"
@@ -79,3 +124,35 @@ msgstr "Avulso"
 msgid "list.registered"
 msgstr "Registrado"
 
+msgid "list.skipped"
+msgstr "Pulei"
+
+msgid "list.symptom"
+msgstr "Sintomas"
+
+msgid "list.taken"
+msgstr "Tomei"
+
+msgid "list.water"
+msgstr "Água"
+
+msgid "mood.1"
+msgstr "Muito ruim"
+
+msgid "mood.2"
+msgstr "Ruim"
+
+msgid "mood.3"
+msgstr "Ok"
+
+msgid "mood.4"
+msgstr "Bom"
+
+msgid "mood.5"
+msgstr "Ótimo"
+
+msgid "skip"
+msgstr "Pular"
+
+msgid "taken"
+msgstr "Tomei"
