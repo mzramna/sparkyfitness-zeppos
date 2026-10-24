@@ -7,7 +7,7 @@
     "dev": "zeus dev",
     "build": "zeus build",
     "preview": "zeus preview",
-    "test": "node --test --experimental-test-coverage --test-coverage-lines=90 --test-coverage-branches=80 --test-coverage-exclude='test/**' test/*.test.mjs"
+    "test": "node --test --experimental-test-coverage --test-coverage-lines=90 --test-coverage-branches=80 --test-coverage-exclude='test/**' --test-coverage-exclude='**/zos-stubs-*/**' test/*.test.mjs"
   },
   "dependencies": {
     "@zeppos/zml": "^0.0.27"

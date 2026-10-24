@@ -1,31 +1,18 @@
-// Gera bundle de um módulo do app com @zos/* e @zeppos/zml/* trocados por fakes em globalThis.__zos.
-import { build } from 'esbuild'
+import { register } from 'node:module'
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve as abs } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
-const FAKE = {
-  '@zos/storage': 'export const localStorage = Z.storage',
-  '@zos/ui': 'const u = Z.ui; export default u; export const { createWidget, deleteWidget, widget, prop, align, text_style, event } = u',
-  '@zos/router': 'export const push = (o) => Z.calls.push(["push", o]); export const back = () => Z.calls.push(["back"]); export const replace = (o) => Z.calls.push(["replace", o])',
-  '@zos/interaction': 'export const showToast = (o) => Z.calls.push(["toast", o.content])',
-  '@zos/sensor': 'export const { Step, Calorie, HeartRate, Sleep } = Z.sensors',
-  '@zos/alarm': 'export const set = (o) => Z.alarm.set(o); export const cancel = (id) => Z.alarm.cancel(id)',
-  '@zos/notification': 'export const notify = (o) => Z.notify(o)',
-  '@zos/app-service': 'export const exit = () => Z.calls.push(["exit"])',
-  '@zos/i18n': 'export const getText = (k) => k',
-  '@zeppos/zml/base-page': 'export const BasePage = (o) => o',
-  '@zeppos/zml/base-app': 'export const BaseApp = (o) => o',
-  '@zeppos/zml/base-side': 'export const BaseSideService = (o) => o; export const settingsLib = Z.settings'
-}
+register('./hooks.mjs', import.meta.url)
 
-export async function load(entry) {
-  const { outputFiles } = await build({ entryPoints: [entry], bundle: true, format: 'esm', write: false,
-    plugins: [{ name: 'zos', setup(b) {
-      b.onResolve({ filter: /^@(zos|zeppos\/zml)\// }, (a) => ({ path: a.path, namespace: 'zos' }))
-      b.onLoad({ filter: /.*/, namespace: 'zos' }, (a) => {
-        if (!FAKE[a.path]) throw new Error(`sem fake para ${a.path}`)
-        return { contents: 'const Z = globalThis.__zos;\n' + FAKE[a.path] }
-      })
-    } }] })
-  return import('data:text/javascript,' + encodeURIComponent(outputFiles[0].text) + `#${Math.random()}`)
+let n = 0
+// stubs: { sensors: 'fonte esm' } substitui ../utils/sensors.
+export function load(entry, stubs = {}) {
+  const dir = mkdtempSync(join(tmpdir(), 'zos-stubs-'))
+  for (const [name, src] of Object.entries(stubs)) writeFileSync(join(dir, `${name}.js`), src)
+  const q = new URLSearchParams({ r: String(++n), stubs: pathToFileURL(dir).href.replace('file://', '') })
+  return import(`${pathToFileURL(abs(entry)).href}?${q}`)
 }
 
 // Estado fake novo a cada teste. Páginas/serviços registram-se via Page()/AppSideService()/AppService().
@@ -38,7 +25,7 @@ export function reset({ settings = {}, routes = {}, sensors = {} } = {}) {
     calls: [],
     storage: { getItem: (k, d) => (store.has(k) ? store.get(k) : d), setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k), _map: store },
     ui: {
-      widget: new Proxy({}, { get: (_, k) => k }), prop: new Proxy({}, { get: (_, k) => k }),
+      widget: new Proxy({}, { get: (_, k) => k }), prop: new Proxy({}, { get: (_, k) => String(k).toLowerCase() }),
       align: new Proxy({}, { get: (_, k) => k }), text_style: new Proxy({}, { get: (_, k) => k }), event: new Proxy({}, { get: (_, k) => k }),
       createWidget(type, props) {
         const w = { type, props: { ...props }, setProperty(p, v) { this.props[p] = v }, getProperty(p) { return this.props[p] },
