@@ -24,31 +24,41 @@ Page(BasePage({
       c.createWidget(hmUI.widget.FILL_RECT, { y, h: 10, radius: 5, color: theme.track, ...p })
       return c.createWidget(hmUI.widget.FILL_RECT, { y, h: 10, radius: 5, color, ...p, w: Math.round(p.w * Math.min(pct, 1)) })
     }
+    // Cartão: ícone à esquerda num fundo da mesma cor; o botão ocupa só o resto, porque o texto do BUTTON é centralizado.
+    // shortcut: toque no ícone não dispara o cartão, o botão começa em x=110; liberar a área toda se o hardware mostrar que importa.
+    const card = (y, label, src, click, color = theme.card) => {
+      c.createWidget(hmUI.widget.FILL_RECT, { x: 50, y, w: 380, h: 64, radius: theme.radius, color })
+      c.createWidget(hmUI.widget.IMG, { x: 66, y: y + 12, src })
+      return btn(y, label, color, click, { x: 110, w: 320 })
+    }
     const syncLabel = (n) => `${t('dash.sync')} (${n})`
-    let y = 300
+    let y = 332
 
     if (T) {
+      // Logo no topo, centralizado; o anel começa abaixo dele.
+      c.createWidget(hmUI.widget.IMG, { x: 216, y: 8, w: 48, h: 48, auto_scale: true, src: 'logo.png' })
       const { calories: cal, macros, water } = T
       const over = cal.remaining < 0
-      c.createWidget(hmUI.widget.ARC, { x: 140, y: 40, w: 200, h: 200, start_angle: -90, end_angle: 270, line_width: 18, color: theme.track })
-      c.createWidget(hmUI.widget.ARC_PROGRESS, { x: 140, y: 40, w: 200, h: 200, start_angle: -90, end_angle: 270, line_width: 18,
+      c.createWidget(hmUI.widget.ARC, { x: 140, y: 72, w: 200, h: 200, start_angle: -90, end_angle: 270, line_width: 18, color: theme.track })
+      c.createWidget(hmUI.widget.ARC_PROGRESS, { x: 140, y: 72, w: 200, h: 200, start_angle: -90, end_angle: 270, line_width: 18,
         level: Math.min(100, Math.round((cal.eaten / (cal.goal || 1)) * 100)), color: over ? theme.over : theme.calories })
-      text({ x: 160, y: 110, w: 160, h: 50, text: String(Math.abs(cal.remaining)), text_size: 40, color: over ? theme.over : theme.text })
-      text({ x: 160, y: 160, w: 160, h: 30, text: t(over ? 'dash.over' : 'dash.remaining'), text_size: 18, color: theme.muted })
-      text({ x: 50, y: 250, w: 190, h: 30, text: `${t('dash.eaten')} ${cal.eaten}` })
-      text({ x: 240, y: 250, w: 190, h: 30, text: `${t('dash.burned')} ${cal.burned}` })
+      text({ x: 160, y: 142, w: 160, h: 50, text: String(Math.abs(cal.remaining)), text_size: 40, color: over ? theme.over : theme.text })
+      text({ x: 160, y: 192, w: 160, h: 30, text: t(over ? 'dash.over' : 'dash.remaining'), text_size: 18, color: theme.muted })
+      text({ x: 50, y: 282, w: 190, h: 30, text: `${t('dash.eaten')} ${cal.eaten}` })
+      text({ x: 240, y: 282, w: 190, h: 30, text: `${t('dash.burned')} ${cal.burned}` })
 
       MACROS.forEach((m, i) => {
-        const ry = 300 + i * 40
+        const ry = 332 + i * 40
         const { value, goal } = macros[m]
         text({ x: 60, y: ry, w: 100, h: 30, text: t(`dash.${m}`), text_size: 20, color: theme.muted, align_h: hmUI.align.LEFT })
         bar(ry + 10, value / (goal || 1), theme[m], { x: 165, w: 150 })
         text({ x: 320, y: ry, w: 100, h: 30, text: `${value}/${goal}`, text_size: 20 })
       })
 
-      text({ x: 60, y: 480, w: 120, h: 30, text: t('dash.water'), align_h: hmUI.align.LEFT })
-      this.waterTxt = text({ x: 180, y: 480, w: 240, h: 30, text: `${water.ml}/${water.goal_ml} ml`, color: theme.water })
-      this.waterBar = bar(520, water.ml / (water.goal_ml || 1), theme.water, { x: 70, w: 340 })
+      c.createWidget(hmUI.widget.IMG, { x: 50, y: 505, src: 'icons/water.png' })
+      text({ x: 96, y: 512, w: 84, h: 30, text: t('dash.water'), align_h: hmUI.align.LEFT })
+      this.waterTxt = text({ x: 180, y: 512, w: 240, h: 30, text: `${water.ml}/${water.goal_ml} ml`, color: theme.water })
+      this.waterBar = bar(552, water.ml / (water.goal_ml || 1), theme.water, { x: 70, w: 340 })
       const prim = T.containers.find((k) => k.is_primary) || T.containers[0]
       const add = (ch) => () => {
         const n = addWater(prim, ch)
@@ -58,24 +68,28 @@ Page(BasePage({
         this.syncBtn.setProperty(hmUI.prop.TEXT, syncLabel(n))
       }
       if (prim) {
-        btn(540, '−', theme.card, add(-1), { x: 70, w: 160 })
-        btn(540, '+', theme.card, add(1), { x: 250, w: 160 })
+        btn(572, '−', theme.card, add(-1), { x: 70, w: 160 })
+        btn(572, '+', theme.card, add(1), { x: 250, w: 160 })
       }
 
       const next = T.doses.filter((d) => !d.done).sort((a, b) => a.scheduled_for.localeCompare(b.scheduled_for))[0]
       const go = (key) => () => navigate({ url: 'page/list', params: JSON.stringify({ key }) })
+      // Ícones e cores como no app Android (Icon.tsx); ciclo usa folha, não gota, como no app.
       const cards = [
-        [`${t('dash.meds')}: ${next ? `${hhmm(next.scheduled_for)} ${next.label}` : t('dash.noDoses')}`, go('meds')],
-        [`${t('dash.cycle')}: ${T.cycle ? `${T.cycle.phase} ${T.cycle.cycleDay}` : '-'}`, go('cycle')],
-        [t('dash.mood'), go('mood')], [t('dash.symptom'), go('symptom')], [t('dash.food'), go('food')],
-        [`${t('dash.fasting')}: ${T.fasting ? t('dash.active') : '-'}`, () => navigate({ url: 'page/fasting' })]
+        [`${t('dash.meds')}: ${next ? `${hhmm(next.scheduled_for)} ${next.label}` : t('dash.noDoses')}`, 'icons/medkit-outline.png', go('meds')],
+        [`${t('dash.cycle')}: ${T.cycle ? `${T.cycle.phase} ${T.cycle.cycleDay}` : '-'}`, 'icons/leaf-outline.png', go('cycle')],
+        [t('dash.mood'), 'icons/happy-outline.png', go('mood')],
+        [t('dash.symptom'), 'icons/medkit-outline.png', go('symptom')],
+        [t('dash.food'), 'icons/restaurant.png', go('food')],
+        [`${t('dash.fasting')}: ${T.fasting ? t('dash.active') : '-'}`, 'icons/timer-outline.png', () => navigate({ url: 'page/fasting' })]
       ]
-      y = 620
-      cards.forEach(([label, click]) => { btn(y, label, theme.card, click); y += 72 })
+      y = 652
+      cards.forEach(([label, src, click]) => { card(y, label, src, click); y += 72 })
     } else {
+      c.createWidget(hmUI.widget.IMG, { x: 180, y: 16, src: 'logo.png' })
       text({ x: 40, y: 160, w: 400, h: 120, text: t('dash.syncToDownload'), color: theme.muted, text_style: hmUI.text_style.WRAP })
     }
-    this.syncBtn = btn(y, syncLabel(load().length), theme.accent, () => this.sync())
+    this.syncBtn = card(y, syncLabel(load().length), 'icons/sync.png', () => this.sync(), theme.brand)
     // folga para o botão não ficar preso na curva da tela
     text({ x: 0, y: y + 70, w: 480, h: 60, text: '' })
   },
