@@ -13,8 +13,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with: { node-version: 22, cache: npm }
       - run: npm ci
       # testes, i18n estrito e cobertura mínima por arquivo (scripts/test.mjs)
@@ -24,8 +24,8 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - name: Bundle check (imports e sintaxe)
@@ -38,7 +38,7 @@ jobs:
         run: ls -la dist && test -n "$(find dist -name '*.zab' -print -quit)"
       - name: Pacote inclui o Amazfit Balance
         run: python3 -I scripts/check_zab.py dist/*.zab
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: sparkyfitness-zeppos-${{ github.sha }}
           path: dist/*.zab
