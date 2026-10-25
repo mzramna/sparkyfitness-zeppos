@@ -718,24 +718,28 @@ test('listas: todas as telas e estados vazios numa mesma carga', async () => {
   tap(Z, '▶')
   tap(Z, '◀')
   assert.equal(Z.gesture?.callback?.(3), true) // next page
-  assert.equal(Z.gesture?.callback?.(4), true) // prev tab (food -> symptom)
+  assert.equal(Z.gesture?.callback?.(4), false) // página 0: deslize à direita fica com o sistema (voltar)
   assert.equal(Z.gesture?.callback?.(1), false) // other gesture
   Z.crown?.callback?.(0, 1) // next page via crown (page 0 -> 1)
+  Z.crown?.callback?.(0, 1) // trava: segundo evento da mesma rotação é ignorado
   Z.crown?.callback?.(0, -1) // page is 0, degree < 0 branch false
 
   // Food page 1 (última página)
   show({ key: 'food', page: 1 }, many)
+  assert.equal(Z.gesture?.callback?.(4), true) // prev page dentro da aba
   Z.crown?.callback?.(0, -1) // prev page via crown (page 1 -> 0)
+  show({ key: 'food', page: 1 }, many)
   Z.crown?.callback?.(0, 1) // page is 1, degree > 0 branch false
   assert.equal(Z.gesture?.callback?.(3), true) // next tab wraps to water
 
   // Water page 0 (primeira aba do carrossel)
   show({ key: 'water', page: 0 }, T())
-  assert.equal(Z.gesture?.callback?.(4), true) // prev tab wraps to food
+  assert.equal(Z.gesture?.callback?.(4), false) // deslize à direita volta pelo sistema
+  page.prevPage(1) // ◀ na primeira aba ainda dá a volta para food
 
   // Meds page 0 (aba intermediária)
   show({ key: 'meds', page: 0 }, T())
-  assert.equal(Z.gesture?.callback?.(4), true) // prev tab (meds -> water)
+  page.prevPage(1) // ◀: meds -> water
   assert.equal(Z.gesture?.callback?.(3), true) // next tab (meds -> cycle)
 
   // Dose (fora de TABS, idx < 0)

@@ -132,14 +132,17 @@ Page(BasePage({
     onGesture?.({
       callback: (event) => {
         if (event === GESTURE_LEFT) { this.nextPage(totalPages); return true }
-        if (event === GESTURE_RIGHT) { this.prevPage(totalPages); return true }
+        // Na primeira página o deslize para a direita volta (padrão do sistema); interceptar prendia o usuário.
+        if (event === GESTURE_RIGHT && this.page > 0) { this.prevPage(totalPages); return true }
         return false
       }
     })
+    // A coroa dispara vários eventos por giro; sem trava cada um fazia um replace() e empilhava rebuilds.
     onDigitalCrown?.({
       callback: (key, degree) => {
-        if (degree > 0 && this.page < totalPages - 1) this.nextPage(totalPages)
-        else if (degree < 0 && this.page > 0) this.prevPage(totalPages)
+        if (this.navigating) return
+        if (degree > 0 && this.page < totalPages - 1) { this.navigating = true; this.nextPage(totalPages) }
+        else if (degree < 0 && this.page > 0) { this.navigating = true; this.prevPage(totalPages) }
       }
     })
   },

@@ -134,3 +134,30 @@ test('directSync em modo health-connect não envia health mas inclui no synced',
   assert.deepEqual(res.synced, ['h1'])
   assert.equal(sent.some((s) => s.url.includes('/api/health-data')), false)
 })
+
+test('directSync: fast_end sem jejum ativo, erros sem corpo e respostas vazias', async () => {
+  reset()
+  const { saveConfig, directSync } = await load('utils/direct-sync.js')
+  saveConfig({ server: 'https://sparky.test///', apiKey: 'k' })
+  const sent = []
+  globalThis.fetch = async ({ url, method }) => {
+    sent.push(`${method} ${url}`)
+    if (url.includes('/api/fasting/')) return { status: 404, body: '' }
+    if (url.includes('/api/daily-summary')) return { status: 200, body: { foodEntries: [{ protein: 10, quantity: 2 }] } }
+    return { status: 200, body: '' }
+  }
+  const res = await directSync([
+    { id: 'f', type: 'fast_end', ts: 't', data: {} },
+    { id: 'u', type: 'desconhecido', data: {} }
+  ])
+  assert.deepEqual(res.synced, ['f', 'u'])
+  assert.equal(sent.some((s) => s.includes('/api/fasting/end')), false)
+  assert.equal(sent[0], 'GET https://sparky.test/api/fasting/current')
+
+  globalThis.fetch = async () => ({ status: 503, body: '{invalid' })
+  await assert.rejects(() => directSync([]), /^Error: HTTP 503$/)
+  globalThis.fetch = async () => ({ status: 400, body: { error: 'bad' } })
+  await assert.rejects(() => directSync([]), /HTTP 400 - bad/)
+  globalThis.fetch = async () => ({ status: 418, body: '"teapot"' })
+  await assert.rejects(() => directSync([]), /HTTP 418 - teapot/)
+})

@@ -36,9 +36,6 @@ Page(BasePage({
     let y = 332
 
     if (T) {
-      if (T.doses) {
-        try { scheduleReminders(T.doses) } catch (e) {}
-      }
       // Logo no topo, centralizado; o anel começa abaixo dele.
       c.createWidget(hmUI.widget.IMG, { x: 216, y: 8, w: 48, h: 48, auto_scale: true, src: 'logo.png' })
       const { calories: cal, macros, water } = T
@@ -82,22 +79,19 @@ Page(BasePage({
         btn(572, '+', theme.card, add(1), { x: 250, w: 160 })
       }
 
-      onGesture?.({
-        callback: (event) => {
-          if (event === GESTURE_LEFT) {
-            waterClick()
-            return true
+      // Coroa fica livre para rolar o VIEW_CONTAINER: somar água a cada passo da coroa gravava a fila
+      // no storage dezenas de vezes por giro e travava a tela.
+      try {
+        onGesture?.({
+          callback: (event) => {
+            if (event === GESTURE_LEFT) {
+              waterClick()
+              return true
+            }
+            return false
           }
-          return false
-        }
-      })
-      onDigitalCrown?.({
-        callback: (key, degree) => {
-          if (prim) {
-            add(degree > 0 ? 1 : -1)()
-          }
-        }
-      })
+        })
+      } catch (e) {}
 
       const next = T.doses.filter((d) => !d.done).sort((a, b) => a.scheduled_for.localeCompare(b.scheduled_for))[0]
       // Ícones e cores como no app Android (Icon.tsx); ciclo usa folha, não gota, como no app.
