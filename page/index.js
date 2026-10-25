@@ -1,9 +1,10 @@
 import * as hmUI from '@zos/ui'
 import { push as navigate, replace } from '@zos/router'
-import { showToast } from '@zos/interaction'
+import { showToast, onDigitalCrown, offDigitalCrown, onGesture, offGesture, GESTURE_LEFT } from '@zos/interaction'
 import { getText as t } from '@zos/i18n'
 import { BasePage } from '@zeppos/zml/base-page'
 import { load, remove, loadToday, saveToday, addWater } from '../utils/queue'
+import { saveConfig, canDirectSync, directSync } from '../utils/direct-sync'
 import { theme } from '../utils/theme'
 import { collectHealth } from '../utils/sensors'
 import { scheduleReminders } from '../utils/reminders'
@@ -35,6 +36,9 @@ Page(BasePage({
     let y = 332
 
     if (T) {
+      if (T.doses) {
+        try { scheduleReminders(T.doses) } catch (e) {}
+      }
       // Logo no topo, centralizado; o anel começa abaixo dele.
       c.createWidget(hmUI.widget.IMG, { x: 216, y: 8, w: 48, h: 48, auto_scale: true, src: 'logo.png' })
       const { calories: cal, macros, water } = T
@@ -55,9 +59,15 @@ Page(BasePage({
         text({ x: 320, y: ry, w: 100, h: 30, text: `${value}/${goal}`, text_size: 20 })
       })
 
-      c.createWidget(hmUI.widget.IMG, { x: 50, y: 505, src: 'icons/water.png' })
-      text({ x: 96, y: 512, w: 84, h: 30, text: t('dash.water'), align_h: hmUI.align.LEFT })
-      this.waterTxt = text({ x: 180, y: 512, w: 240, h: 30, text: `${water.ml}/${water.goal_ml} ml`, color: theme.water })
+      const go = (key) => () => navigate({ url: 'page/list', params: JSON.stringify({ key }) })
+      const waterClick = go('water')
+      btn(502, '', 0, waterClick, { x: 50, w: 380, h: 44, normal_color: 0, press_color: theme.track, click_func: waterClick })
+      const wImg = c.createWidget(hmUI.widget.IMG, { x: 50, y: 505, src: 'icons/water.png', click_func: waterClick })
+      wImg.addEventListener?.(hmUI.event.CLICK_DOWN, waterClick)
+      const wTitle = text({ x: 96, y: 512, w: 84, h: 30, text: t('dash.water'), align_h: hmUI.align.LEFT, click_func: waterClick })
+      wTitle.addEventListener?.(hmUI.event.CLICK_DOWN, waterClick)
+      this.waterTxt = text({ x: 180, y: 512, w: 240, h: 30, text: `${water.ml}/${water.goal_ml} ml`, color: theme.water, click_func: waterClick })
+      this.waterTxt.addEventListener?.(hmUI.event.CLICK_DOWN, waterClick)
       this.waterBar = bar(552, water.ml / (water.goal_ml || 1), theme.water, { x: 70, w: 340 })
       const prim = T.containers.find((k) => k.is_primary) || T.containers[0]
       const add = (ch) => () => {
@@ -72,8 +82,24 @@ Page(BasePage({
         btn(572, '+', theme.card, add(1), { x: 250, w: 160 })
       }
 
+      onGesture?.({
+        callback: (event) => {
+          if (event === GESTURE_LEFT) {
+            waterClick()
+            return true
+          }
+          return false
+        }
+      })
+      onDigitalCrown?.({
+        callback: (key, degree) => {
+          if (prim) {
+            add(degree > 0 ? 1 : -1)()
+          }
+        }
+      })
+
       const next = T.doses.filter((d) => !d.done).sort((a, b) => a.scheduled_for.localeCompare(b.scheduled_for))[0]
-      const go = (key) => () => navigate({ url: 'page/list', params: JSON.stringify({ key }) })
       // Ícones e cores como no app Android (Icon.tsx); ciclo usa folha, não gota, como no app.
       const cards = [
         [`${t('dash.meds')}: ${next ? `${hhmm(next.scheduled_for)} ${next.label}` : t('dash.noDoses')}`, 'icons/medkit-outline.png', go('meds')],
@@ -97,8 +123,25 @@ Page(BasePage({
     showToast({ content: t('dash.syncing') })
     // Falha de sensor não pode impedir o envio do que já está na fila.
     try { await collectHealth() } catch (e) {}
-    this.request({ method: 'sync', params: { entries: load() } }, { timeout: 60000 })
-      .then(({ synced = [], today, error }) => {
+
+    const doBleSync = () => {
+      const entries = load()
+      return this.request({ method: 'sync', params: { entries } }, { timeout: 60000 })
+        .then((res) => {
+          if (res && res.config) saveConfig(res.config)
+          return res
+        })
+    }
+
+    const doSync = () => {
+      if (canDirectSync()) {
+        return directSync(load()).catch(() => doBleSync())
+      }
+      return doBleSync()
+    }
+
+    doSync()
+      .then(({ synced = [], today, error } = {}) => {
         remove(synced)
         if (today) {
           saveToday(today)
@@ -109,5 +152,9 @@ Page(BasePage({
         else this.syncBtn.setProperty(hmUI.prop.TEXT, `${t('dash.sync')} (${load().length})`)
       })
       .catch(() => showToast({ content: t('dash.disconnected') }))
+  },
+  onDestroy() {
+    offGesture?.()
+    offDigitalCrown?.()
   }
 }))

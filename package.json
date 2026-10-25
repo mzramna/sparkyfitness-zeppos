@@ -5,7 +5,9 @@
   "description": "App Zepp OS para SparkyFitness",
   "scripts": {
     "dev": "zeus dev",
-    "build": "zeus build",
+    "build": "node scripts/build.js",
+    "build:all": "node scripts/build.js --api all",
+    "verify": "node scripts/build.js --api all --verify",
     "preview": "zeus preview",
     "test": "node scripts/test.mjs"
   },

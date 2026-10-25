@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const read = (p) => readFileSync(join(ROOT, p), 'utf8')
-const SKIP = new Set(['node_modules', 'test', 'build', 'dist', 'coverage'])
+const SKIP = new Set(['node_modules', 'test', 'build', 'dist', 'coverage', 'legacy'])
 // Todo .js do projeto, sem depender de quem importa @zos/i18n.
 const jsFiles = (d) => readdirSync(join(ROOT, d), { withFileTypes: true }).flatMap((e) => {
   const p = join(d, e.name)

@@ -14,7 +14,12 @@ const FAKE = {
     export const createWidget = (t, p) => Z.ui.createWidget(t, p), deleteWidget = (w) => Z.ui.deleteWidget(w)
     export default { widget, prop, align, text_style, event, createWidget, deleteWidget }`,
   '@zos/router': 'export const push = (o) => Z.calls.push(["push", o]); export const back = () => Z.calls.push(["back"]); export const replace = (o) => Z.calls.push(["replace", o])',
-  '@zos/interaction': 'export const showToast = (o) => Z.calls.push(["toast", o.content])',
+  '@zos/interaction': `export const showToast = (o) => Z.calls.push(["toast", o.content])
+    export const onDigitalCrown = (o) => { Z.crown = o; Z.calls.push(["onDigitalCrown", o]) }
+    export const offDigitalCrown = () => { Z.crown = null; Z.calls.push(["offDigitalCrown"]) }
+    export const onGesture = (o) => { Z.gesture = o; Z.calls.push(["onGesture", o]) }
+    export const offGesture = () => { Z.gesture = null; Z.calls.push(["offGesture"]) }
+    export const GESTURE_UP = 1, GESTURE_DOWN = 2, GESTURE_LEFT = 3, GESTURE_RIGHT = 4`,
   '@zos/sensor': 'const mk = (n) => class { constructor(...a) { return new Z.sensors[n](...a) } }; export const Step = mk("Step"), Calorie = mk("Calorie"), HeartRate = mk("HeartRate"), Sleep = mk("Sleep")',
   '@zos/alarm': 'export const set = (o) => Z.alarm.set(o); export const cancel = (id) => Z.alarm.cancel(id)',
   '@zos/notification': 'export const notify = (o) => Z.notify(o)',
@@ -44,7 +49,7 @@ export async function load(url, ctx, next) {
   if (url.startsWith('zos-fake:')) {
     const spec = url.slice(9)
     if (!FAKE[spec]) throw new Error(`sem fake para ${spec}`)
-    return { format: 'module', source: 'const Z = new Proxy({}, { get: (_, k) => globalThis.__zos[k] });\n' + FAKE[spec], shortCircuit: true }
+    return { format: 'module', source: 'const Z = new Proxy({}, { get: (_, k) => globalThis.__zos[k], set: (_, k, v) => { globalThis.__zos[k] = v; return true } });\n' + FAKE[spec], shortCircuit: true }
   }
   if (!url.startsWith('file:')) return next(url, ctx)
   return { format: 'module', source: readFileSync(fileURLToPath(url.split('?')[0])), shortCircuit: true }

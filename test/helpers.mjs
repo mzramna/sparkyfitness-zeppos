@@ -72,7 +72,10 @@ export function reset({ settings = {}, routes = {}, sensors = {} } = {}) {
 
 // Encontra widget por texto e dispara o clique.
 export function tap(Z, text) {
-  const w = Z.widgets.find((x) => x.props.text === text || String(x.props.text).startsWith(text))
+  const w = Z.widgets.find((x) =>
+    text instanceof RegExp ? text.test(x.props.text) :
+    (x.props.text === text || String(x.props.text).startsWith(text) || String(x.props.text).includes(text))
+  )
   if (!w) throw new Error(`widget "${text}" não encontrado: ${Z.widgets.map((x) => x.props.text).filter(Boolean).join(' | ')}`)
   ;(w.props.click_func || w.props.on_CLICK_UP)(w)
   return w

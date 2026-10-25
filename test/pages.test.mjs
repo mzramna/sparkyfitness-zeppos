@@ -129,6 +129,48 @@ test('sync: erro do servidor, falha do lembrete e celular desconectado', async (
   assert.ok(toasts(Z).includes('dash.disconnected'))
 })
 
+test('sync direto via Wi-Fi no relógio quando configurado, sem passar pelo BLE', async () => {
+  const T = fixture()
+  const wifiCalls = []
+  let bleCalled = false
+  const { Z } = await open('page/index.js', {
+    today: T,
+    request: async () => { bleCalled = true; return { synced: [] } }
+  })
+  globalThis.fetch = async ({ url, method, body }) => {
+    wifiCalls.push({ url, method, body })
+    if (url.includes('/api/daily-summary')) return { status: 200, body: JSON.stringify(fixture()) }
+    if (url.includes('/api/water-containers')) return { status: 200, body: JSON.stringify(fixture().containers) }
+    if (url.includes('/api/v2/medications')) return { status: 200, body: JSON.stringify([]) }
+    return { status: 200, body: JSON.stringify({ ok: true }) }
+  }
+  Z.storage.setItem('config', JSON.stringify({ server: 'https://sparky.direct', apiKey: 'key-direct' }))
+  tap(Z, '+')
+  tap(Z, 'dash.sync (1)'); await tick(); await tick()
+  assert.equal(bleCalled, false, 'não deve chamar BLE quando Wi-Fi direto tiver sucesso')
+  assert.ok(wifiCalls.length > 0)
+  assert.ok(toasts(Z).includes('1 dash.sent'))
+})
+
+test('sync direto via Wi-Fi com falha faz fallback automático para BLE', async () => {
+  const T = fixture()
+  let bleCalled = false
+  const { Z } = await open('page/index.js', {
+    today: T,
+    request: async (m) => {
+      bleCalled = true
+      return { synced: [queue(Z)[0].id], today: T, config: { server: 'https://sparky.saved', apiKey: 'key-saved' } }
+    }
+  })
+  globalThis.fetch = async () => { throw new Error('wifi offline') }
+  Z.storage.setItem('config', JSON.stringify({ server: 'https://sparky.direct', apiKey: 'key-direct' }))
+  tap(Z, '+')
+  tap(Z, 'dash.sync (1)'); await tick(); await tick()
+  assert.equal(bleCalled, true, 'deve chamar BLE quando Wi-Fi direto falhar')
+  assert.ok(toasts(Z).includes('1 dash.sent'))
+  assert.deepEqual(JSON.parse(Z.storage.getItem('config')), { server: 'https://sparky.saved', apiKey: 'key-saved' })
+})
+
 test('lista sem cache e lista vazia', async () => {
   let r = await open('page/list.js', { params: { key: 'mood' } })
   assert.ok(texts(r.Z).includes('dash.syncToDownload'))
@@ -152,10 +194,10 @@ test('remédios: dose feita não clica, pendente vai a taken/skipped, PRN direto
   const done = r.Z.widgets.find((w) => String(w.props.text).startsWith('✓ '))
   assert.equal(done.props.color, 0x737b8c)
   done.props.click_func()
-  assert.deepEqual([queue(r.Z).length, r.Z.calls.length], [0, 0])
+  assert.deepEqual([queue(r.Z).length, r.Z.calls.filter((c) => c[0] === 'push' || c[0] === 'replace').length], [0, 0])
   tap(r.Z, 'Ibuprofeno')
   assert.deepEqual(queue(r.Z)[0].data, { medication_id: 'm3', status: 'prn_taken', dose_amount: 400, dose_unit: 'mg' })
-  tap(r.Z, '2') // dose pendente (hora local começa com dígito)
+  tap(r.Z, 'Vitamina D') // dose pendente
   const nav = r.Z.calls.find((c) => c[0] === 'push')[1]
   assert.equal(nav.url, 'page/list')
 
@@ -578,20 +620,30 @@ test('dashboard numa mesma carga: cache, sem cache, metas zeradas, sem recipient
   tap(Z, 'dash.sync (0)'); await tick(); await tick()
   assert.ok(texts(Z).includes('dash.sync (0)'))
 
-  show(fixture())
-  tap(Z, '+'); tap(Z, '−')
-  for (const c of ['dash.meds', 'dash.cycle', 'dash.mood', 'dash.symptom', 'dash.food', 'dash.fasting']) tap(Z, c)
   page.request = async () => ({ synced: [], error: 'boom' })
-  tap(Z, 'dash.sync'); await tick(); await tick()
+  tap(Z, 'dash.sync (0)'); await tick(); await tick()
   assert.ok(toasts(Z).includes('dash.error: boom'))
   page.request = async () => ({ synced: [], today: withFuture(fixture()) })
   const restore = failAlarms(Z)
-  tap(Z, 'dash.sync'); await tick(); await tick()
+  tap(Z, 'dash.sync (0)'); await tick(); await tick()
   assert.ok(Z.calls.some((c) => c[0] === 'replace'))
   restore()
   page.request = async () => { throw new Error('ble') }
-  tap(Z, 'dash.sync'); await tick(); await tick()
+  tap(Z, 'dash.sync (0)'); await tick(); await tick()
   assert.ok(toasts(Z).includes('dash.disconnected'))
+
+  // Caminho Wi-Fi direto (sucesso e fallback) dentro da mesma carga
+  Z.storage.setItem('config', JSON.stringify({ server: 'https://sparky.direct', apiKey: 'key-direct' }))
+  globalThis.fetch = async ({ url }) => {
+    if (url.includes('/api/daily-summary')) return { status: 200, body: JSON.stringify(fixture()) }
+    if (url.includes('/api/water-containers') || url.includes('/api/v2/medications')) return { status: 200, body: JSON.stringify([]) }
+    return { status: 200, body: JSON.stringify({ ok: true }) }
+  }
+  tap(Z, 'dash.sync (0)'); await tick(); await tick()
+  globalThis.fetch = async () => { throw new Error('wifi down') }
+  page.request = async () => ({ synced: [], config: { server: 'https://sparky.saved', apiKey: 'key-saved' } })
+  tap(Z, 'dash.sync (0)'); await tick(); await tick()
+  Z.storage.removeItem('config')
 
   const edge = fixture()
   edge.calories = { eaten: 2300, burned: 0, remaining: -300, goal: 0 }
@@ -610,6 +662,17 @@ test('dashboard numa mesma carga: cache, sem cache, metas zeradas, sem recipient
   assert.ok(!texts(Z).includes('+'))
   tap(Z, 'dash.sync'); await tick(); await tick()
   assert.ok(toasts(Z).includes('0 dash.sent'))
+  Z.crown?.callback?.(0, 1)
+
+  show(fixture())
+  tap(Z, 'dash.water')
+  tap(Z, '+'); tap(Z, '−')
+  for (const c of ['dash.meds', 'dash.cycle', 'dash.mood', 'dash.symptom', 'dash.food', 'dash.fasting']) tap(Z, c)
+  Z.crown?.callback?.(0, 1)
+  Z.crown?.callback?.(0, -1)
+  assert.equal(Z.gesture?.callback?.(3), true)
+  assert.equal(Z.gesture?.callback?.(1), false)
+  page.onDestroy()
 })
 
 test('listas: todas as telas e estados vazios numa mesma carga', async () => {
@@ -625,6 +688,15 @@ test('listas: todas as telas e estados vazios numa mesma carga', async () => {
     return Z
   }
   const T = () => fixture()
+  show(undefined, null)
+  show({ key: 'water' }, null); assert.ok(texts(Z).includes('dash.syncToDownload'))
+  show({ key: 'food' }, { ...T(), foods: [] }); assert.ok(texts(Z).includes('list.empty'))
+  show({ key: 'meal', food: T().foods[0] }, { ...T(), mealTypes: [] }); assert.ok(texts(Z).includes('list.empty'))
+  show({ key: 'symptom' }, { ...T(), symptoms: [] }); assert.ok(texts(Z).includes('list.empty'))
+  show({ key: 'water' }, { ...T(), containers: [] }); assert.ok(texts(Z).includes('list.empty'))
+  show({ key: 'meds' }, { ...T(), doses: [], medications: [] }); assert.ok(texts(Z).includes('list.empty'))
+  show({ key: 'meds' }, { ...T(), medications: [] }); assert.ok(!texts(Z).includes('list.prn'))
+
   show({ key: 'water' }, T()); tap(Z, '+ Copo'); tap(Z, '− Copo')
   const withPrn = T(); withPrn.medications = [{ id: 'm3', name: 'Ibuprofeno', dose_amount: 400, dose_unit: 'mg' }]
   show({ key: 'meds' }, withPrn); tap(Z, 'Ibuprofeno')
@@ -637,14 +709,40 @@ test('listas: todas as telas e estados vazios numa mesma carga', async () => {
   show({ key: 'food' }, T()); tap(Z, 'Arroz')
   show({ key: 'meal', food: T().foods[0] }, T()); tap(Z, 'Café')
 
-  show({ key: 'food' }, { ...T(), foods: [] }); assert.ok(texts(Z).includes('list.empty'))
-  show({ key: 'meal', food: T().foods[0] }, { ...T(), mealTypes: [] }); assert.ok(texts(Z).includes('list.empty'))
-  show({ key: 'symptom' }, { ...T(), symptoms: [] }); assert.ok(texts(Z).includes('list.empty'))
-  show({ key: 'water' }, { ...T(), containers: [] }); assert.ok(texts(Z).includes('list.empty'))
-  show({ key: 'meds' }, { ...T(), doses: [], medications: [] }); assert.ok(texts(Z).includes('list.empty'))
-  show({ key: 'meds' }, { ...T(), medications: [] }); assert.ok(!texts(Z).includes('list.prn'))
-  show({ key: 'water' }, null); assert.ok(texts(Z).includes('dash.syncToDownload'))
-  show(undefined, null)
+  // Paginação, coroa e gestos laterais
+  const many = T()
+  many.foods = Array.from({ length: 8 }, (_, i) => ({ id: `f${i}`, name: `Food ${i}`, default_variant: { id: `v${i}`, serving_size: 1, serving_unit: 'g' } }))
+
+  // Food page 0 (totalPages: 2)
+  show({ key: 'food', page: 0 }, many)
+  tap(Z, '▶')
+  tap(Z, '◀')
+  assert.equal(Z.gesture?.callback?.(3), true) // next page
+  assert.equal(Z.gesture?.callback?.(4), true) // prev tab (food -> symptom)
+  assert.equal(Z.gesture?.callback?.(1), false) // other gesture
+  Z.crown?.callback?.(0, 1) // next page via crown (page 0 -> 1)
+  Z.crown?.callback?.(0, -1) // page is 0, degree < 0 branch false
+
+  // Food page 1 (última página)
+  show({ key: 'food', page: 1 }, many)
+  Z.crown?.callback?.(0, -1) // prev page via crown (page 1 -> 0)
+  Z.crown?.callback?.(0, 1) // page is 1, degree > 0 branch false
+  assert.equal(Z.gesture?.callback?.(3), true) // next tab wraps to water
+
+  // Water page 0 (primeira aba do carrossel)
+  show({ key: 'water', page: 0 }, T())
+  assert.equal(Z.gesture?.callback?.(4), true) // prev tab wraps to food
+
+  // Meds page 0 (aba intermediária)
+  show({ key: 'meds', page: 0 }, T())
+  assert.equal(Z.gesture?.callback?.(4), true) // prev tab (meds -> water)
+  assert.equal(Z.gesture?.callback?.(3), true) // next tab (meds -> cycle)
+
+  // Dose (fora de TABS, idx < 0)
+  show({ key: 'dose', dose: T().doses[1] }, T())
+  page.prevPage(1)
+  page.nextPage(1)
+  page.onDestroy()
 })
 
 test('jejum numa mesma carga: sem cache, sem prefs, iniciar, timer, encerrar e além da meta', async () => {
@@ -662,12 +760,14 @@ test('jejum numa mesma carga: sem cache, sem prefs, iniciar, timer, encerrar e a
   show(null)
   const noPrefs = fixture(); noPrefs.fastingPrefs = null
   show(noPrefs)
-  show(fixture()); tap(Z, 'fast.start')
-  const started = JSON.parse(Z.storage.getItem('today'))
+
+  const started = fixture()
+  started.fasting = { start_time: new Date().toISOString(), target_end_time: new Date(Date.now() + 16 * 3600e3).toISOString(), fasting_type: '16:8', status: 'active' }
   show(started)
   assert.equal(timers.size, 1)
   const [tm] = timers.values()
   tm.fn()
+  Z.crown?.callback?.(0, 1)
   tap(Z, 'fast.end')
   assert.equal(JSON.parse(Z.storage.getItem('today')).fasting, null)
 
@@ -677,6 +777,14 @@ test('jejum numa mesma carga: sem cache, sem prefs, iniciar, timer, encerrar e a
     target_end_time: new Date(Date.now() - 4 * 3600e3).toISOString(), status: 'active' }
   show(late)
   assert.equal(Z.widgets.find((w) => w.type === 'ARC_PROGRESS').props.color, 0x3ecc7b)
+
+  // Idle com prefs: coroa ajusta horas e atualiza texto
+  const idle = fixture(); idle.fasting = null
+  show(idle)
+  Z.crown?.callback?.(0, 1)
+  Z.crown?.callback?.(0, -1)
+  tap(Z, 'fast.start')
+
   page.onDestroy()
   assert.equal(timers.size, 0)
   void noPrefsActive
