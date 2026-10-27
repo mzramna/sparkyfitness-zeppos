@@ -79,6 +79,9 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: '6px',
+    width: '100%',
+    minWidth: '0',
+    overflow: 'hidden',
   },
   fieldHint: {
     color: THEME.textSecondary,
@@ -94,7 +97,12 @@ const styles = {
     fontSize: '14px',
     height: '42px',
     width: '100%',
+    maxWidth: '100%',
+    minWidth: '0',
     boxSizing: 'border-box',
+    overflow: 'hidden',
+    whiteSpace: 'nowrap',
+    textOverflow: 'ellipsis',
   },
   select: {
     borderRadius: '10px',
@@ -147,20 +155,35 @@ const styles = {
   },
 }
 
+const MASK = '••••••••'
+// Mostra só os 4 últimos caracteres (chaves curtas ficam totalmente mascaradas).
+function maskSecret(v) {
+  if (!v) return ''
+  return v.length > 8 ? MASK + v.slice(-4) : MASK
+}
+
 AppSettingsPage({
   build({ settingsStorage: s }) {
-    const field = (label, key, placeholder, hint) =>
-      View({ style: styles.fieldGroup }, [
+    // secret: nunca exibe o valor completo; mostra máscara e só substitui se o usuário digitar algo novo.
+    const field = (label, key, placeholder, hint, secret) => {
+      const raw = s.getItem(key) || ''
+      const shown = secret ? maskSecret(raw) : raw
+      return View({ style: styles.fieldGroup }, [
         TextInput({
           label,
           placeholder,
-          value: s.getItem(key) || '',
+          value: shown,
           subStyle: styles.input,
           style: styles.input,
-          onChange: (v) => s.setItem(key, v.trim()),
+          onChange: (v) => {
+            const t = String(v == null ? '' : v).trim()
+            if (secret && (t === shown || t.indexOf(MASK) !== -1)) return
+            s.setItem(key, t)
+          },
         }),
         Text({ style: styles.fieldHint }, hint),
       ])
+    }
 
     // Padrão: Health Connect. A ajuda muda com a escolha (build roda de novo a cada mudança no storage).
     const mode = s.getItem('sensorMode') || 'health-connect'
@@ -184,7 +207,7 @@ AppSettingsPage({
         Text({ style: styles.cardTitle, bold: true }, 'Servidor & Autenticação'),
         Text({ style: styles.cardSubtitle }, 'Endereço e credenciais de acesso da sua instância.'),
         field('URL do servidor', 'server', 'https://sparky.example.com', 'Ex: https://meu-sparky.local:8000 (com http:// ou https://)'),
-        field('API key', 'apiKey', 'Gerada em Settings > API Keys', 'Chave pessoal de autenticação gerada nas configurações do app web'),
+        field('API key', 'apiKey', 'Gerada em Settings > API Keys', 'Chave pessoal de autenticação gerada nas configurações do app web', true),
       ]),
 
       // 3. Sensor Sync Section

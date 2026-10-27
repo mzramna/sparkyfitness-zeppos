@@ -153,3 +153,40 @@ test('paridade: versão legada legacy/setting/index.js possui os mesmos campos e
   const select = findDescendants(root, (n) => n.type === 'Select')[0].props
   assert.equal(select.value, 'direct')
 })
+
+for (const file of ['setting/index.js', 'legacy/setting/index.js']) {
+  test(`API key mascarada e sem overflow (${file})`, async () => {
+    const Z = reset()
+    const m = new Map([['server', 'https://muito-longo.exemplo.com/' + 'x'.repeat(200)], ['apiKey', 'sk-abcdefghijklmnop1234']])
+    const settingsStorage = { getItem: (k) => m.get(k), setItem: (k, v) => m.set(k, v) }
+    await load(file)
+    let [server, key] = findDescendants(Z.setting.build({ settingsStorage }), (n) => n.type === 'TextInput').map((n) => n.props)
+    assert.equal(key.value, '••••••••1234')
+    assert.ok(!key.value.includes('abcdefgh'))
+    for (const inp of [server, key]) {
+      assert.equal(inp.style.overflow, 'hidden')
+      assert.equal(inp.style.whiteSpace, 'nowrap')
+      assert.equal(inp.style.textOverflow, 'ellipsis')
+      assert.equal(inp.style.width, '100%')
+      assert.equal(inp.style.boxSizing, 'border-box')
+    }
+    // valor mascarado inalterado (ou editado parcialmente) não substitui a chave
+    key.onChange('••••••••1234')
+    key.onChange(' ••••••••12 ')
+    assert.equal(m.get('apiKey'), 'sk-abcdefghijklmnop1234')
+    key.onChange(' nova-chave ')
+    assert.equal(m.get('apiKey'), 'nova-chave')
+    key.onChange(null)
+    assert.equal(m.get('apiKey'), '')
+    // chave curta: totalmente mascarada; vazia: campo vazio
+    m.set('apiKey', 'abc')
+    ;[, key] = findDescendants(Z.setting.build({ settingsStorage }), (n) => n.type === 'TextInput').map((n) => n.props)
+    assert.equal(key.value, '••••••••')
+    m.delete('apiKey')
+    ;[, key] = findDescendants(Z.setting.build({ settingsStorage }), (n) => n.type === 'TextInput').map((n) => n.props)
+    assert.equal(key.value, '')
+    // nenhum filho falsy na árvore
+    const walk = (n) => { if (Array.isArray(n.children)) for (const c of n.children) { assert.ok(c); walk(c) } }
+    walk(Z.setting.build({ settingsStorage }))
+  })
+}
