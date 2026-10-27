@@ -20,7 +20,8 @@
     "data:user.hd.heart_rate",
     "data:user.hd.sleep",
     "device:os.alarm",
-    "device:os.notification"
+    "device:os.notification",
+    "device:os.bg_service"
   ],
   "runtime": {
     "apiVersion": {
@@ -30,7 +31,7 @@
     }
   },
   "targets": {
-    "default": {
+    "common": {
       "module": {
         "page": {
           "pages": [
@@ -54,10 +55,13 @@
       "platforms": [
         {
           "st": "r",
-          "sr": "w480"
+          "dw": 480
+        },
+        {
+          "st": "s",
+          "dw": 390
         }
-      ],
-      "designWidth": 480
+      ]
     }
   },
   "i18n": {

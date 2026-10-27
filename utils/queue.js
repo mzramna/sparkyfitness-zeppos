@@ -26,7 +26,8 @@ export function remove(ids) { write('queue', load().filter((e) => !ids.includes(
 export function addWater(container, change) {
   const t = loadToday()
   if (t && t.water) {
-    t.water.ml = Math.max(0, t.water.ml + change * container.volume_ml)
+    const ml = Number(container.volume_ml ?? container.volume) || 0
+    t.water.ml = Math.max(0, (Number(t.water.ml) || 0) + change * ml)
     saveToday(t)
   }
   return push('water', { container_id: container.id, change })

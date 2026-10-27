@@ -6,14 +6,30 @@ const SOURCE = 'zepp'
 const FLOW_LEVELS = ['none', 'spotting', 'light', 'medium', 'heavy'] // enum do servidor (cycleSchemas.ts)
 const MAX_FOODS = 30 // shortcut: a lista cabe no relógio, ampliar se a memória permitir
 
+export function calcVolumeMl(volume, unit, volume_ml) {
+  const v = Number(volume) || 0
+  const u = (unit || '').toLowerCase().trim()
+  if (u === 'l') return Math.round(v * 1000)
+  if (u === 'oz' || u === 'fl oz') return Math.round(v * 29.5735)
+  if (u === 'cup') return Math.round(v * 240)
+  return Math.round(Number(volume_ml ?? volume) || 0)
+}
+
 export async function call(method, path, body) {
   const server = (settingsLib.getItem('server') || '').replace(/\/+$/, '')
   const key = settingsLib.getItem('apiKey') || ''
   if (!server || !key) throw new Error('configure servidor e API key no app Zepp')
   const res = await fetch({ url: server + path, method,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}`, 'x-api-key': key },
     body: body ? JSON.stringify(body) : undefined })
-  if (res.status < 200 || res.status >= 300) throw new Error(`${method} ${path}: HTTP ${res.status}`)
+  if (res.status < 200 || res.status >= 300) {
+    let msg = ''
+    try {
+      const b = typeof res.body === 'string' && res.body ? JSON.parse(res.body) : res.body
+      msg = (b && (b.message || b.error || (typeof b === 'string' ? b : ''))) || ''
+    } catch {}
+    throw new Error(`${method} ${path}: HTTP ${res.status}${msg ? ` - ${msg}` : ''}`)
+  }
   return typeof res.body === 'string' && res.body ? JSON.parse(res.body) : res.body
 }
 
@@ -49,21 +65,41 @@ export async function fetchToday(now = new Date()) {
       quantity: f.default_variant.serving_size, unit: f.default_variant.serving_unit }))
   return {
     date,
-    calories: { eaten: cb.eaten ?? 0, burned: cb.burned ?? 0, remaining: cb.remaining ?? 0, goal: cb.goal ?? goals.calories ?? 0 },
-    macros: {
-      protein: { value: macro(fe, 'protein'), goal: goals.protein ?? 0 },
-      carbs: { value: macro(fe, 'carbs'), goal: goals.carbs ?? 0 },
-      fat: { value: macro(fe, 'fat'), goal: goals.fat ?? 0 },
-      fiber: { value: macro(fe, 'dietary_fiber'), goal: goals.dietary_fiber ?? 0 }
+    calories: {
+      eaten: Math.round(Number(cb.eaten) || 0),
+      burned: Math.round(Number(cb.burned) || 0),
+      remaining: Math.round(Number(cb.remaining) || 0),
+      goal: Math.round(Number(cb.goal ?? goals.calories) || 0)
     },
-    water: { ml: summary.waterIntake ?? 0, goal_ml: goals.water_goal_ml ?? 0 },
-    containers: containers.map(({ id, name, volume, unit, volume_ml, is_primary }) => ({ id, name, volume, unit, volume_ml, is_primary })),
+    macros: {
+      protein: { value: macro(fe, 'protein'), goal: Math.round(Number(goals.protein) || 0) },
+      carbs: { value: macro(fe, 'carbs'), goal: Math.round(Number(goals.carbs) || 0) },
+      fat: { value: macro(fe, 'fat'), goal: Math.round(Number(goals.fat) || 0) },
+      fiber: { value: macro(fe, 'dietary_fiber'), goal: Math.round(Number(goals.dietary_fiber) || 0) }
+    },
+    water: { ml: Math.round(Number(summary.waterIntake) || 0), goal_ml: Math.round(Number(goals.water_goal_ml) || 0) },
+    containers: containers.map(({ id, name, volume, unit, volume_ml, is_primary }) => ({
+      id,
+      name,
+      volume: Number(volume),
+      unit,
+      volume_ml: calcVolumeMl(volume, unit, volume_ml),
+      is_primary
+    })),
     doses: dueDoses(meds, entries, now),
-    medications: meds.map(({ id, name, dose_amount, dose_unit }) => ({ id, name, dose_amount, dose_unit })),
+    medications: meds.map(({ id, name, dose_amount, dose_unit, strength_value, strength_unit }) => ({
+      id,
+      name,
+      dose_amount: dose_amount ?? strength_value ?? null,
+      dose_unit: dose_unit ?? strength_unit ?? null
+    })),
     cycle: cycle && cycle.settings ? { phase: cycle.phase, cycleDay: cycle.cycleDay, isLate: !!(cycle.late && cycle.late.isLate) } : null,
     flowLevels: FLOW_LEVELS,
     fasting: fast ? { start_time: fast.start_time, target_end_time: fast.target_end_time, fasting_type: fast.fasting_type, status: fast.status } : null,
-    fastingPrefs: prefs ? { fasting_type: prefs.default_protocol, hours: prefs.target_fasting_hours } : null,
+    fastingPrefs: prefs ? {
+      fasting_type: (prefs.default_protocol || '16:8').replace('-', ':'),
+      hours: Number(prefs.target_fasting_hours) || Number(String(prefs.default_protocol || '').split(/[-:]/)[0]) || 16
+    } : null,
     symptoms: symptoms.filter((s) => !s.is_archived).map((s) => ({ id: s.id, name: s.display_name || s.name })),
     foods: foodList,
     mealTypes: mealTypes.filter((m) => m.is_visible !== false).map(({ id, name }) => ({ id, name }))

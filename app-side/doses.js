@@ -58,7 +58,7 @@ export function dueDoses(medications, entries, now = new Date()) {
         medication_id: med.id, schedule_id: s.id,
         scheduled_for: new Date(date.getFullYear(), date.getMonth(), date.getDate(), hh, mm).toISOString(),
         label: s.time_of_day ? `${med.name} ${s.time_of_day.slice(0, 5)}` : med.name,
-        dose_amount: s.dose_amount ?? med.dose_amount ?? null, dose_unit: med.dose_unit ?? null,
+        dose_amount: s.dose_amount ?? med.dose_amount ?? med.strength_value ?? null, dose_unit: med.dose_unit ?? med.strength_unit ?? null,
         done: (entries || []).some((e) => isDone(e, med, s, day))
       })
     }

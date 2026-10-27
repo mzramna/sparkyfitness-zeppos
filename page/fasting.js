@@ -1,6 +1,6 @@
 import * as hmUI from '@zos/ui'
 import { replace } from '@zos/router'
-import { showToast } from '@zos/interaction'
+import { showToast, onDigitalCrown, offDigitalCrown } from '@zos/interaction'
 import { getText as t } from '@zos/i18n'
 import { BasePage } from '@zeppos/zml/base-page'
 import { loadToday, saveToday, push } from '../utils/queue'
@@ -34,15 +34,28 @@ Page(BasePage({
         remain.setProperty(hmUI.prop.TEXT, `${t('fast.remaining')} ${hm(end - at)}`)
       }, 60000)
     } else {
-      text({ y: 150, text: prefs ? `${t('fast.protocol')} ${prefs.fasting_type}` : t('fast.noPrefs'), color: theme.muted })
+      this.protocolTxt = text({ y: 150, text: prefs ? `${t('fast.protocol')} ${prefs.fasting_type}` : t('fast.noPrefs'), color: theme.muted })
     }
     if (!f && !prefs) return
+    onDigitalCrown?.({
+      callback: (key, degree) => {
+        if (!f && prefs) {
+          const step = degree > 0 ? 1 : -1
+          prefs.hours = Math.max(1, Math.min(48, (Number(prefs.hours) || 16) + step))
+          prefs.fasting_type = `${prefs.hours}:${Math.max(0, 24 - prefs.hours)}`
+          if (this.protocolTxt) {
+            this.protocolTxt.setProperty(hmUI.prop.TEXT, `${t('fast.protocol')} ${prefs.fasting_type}`)
+          }
+        }
+      }
+    })
     hmUI.createWidget(hmUI.widget.BUTTON, { x: 90, y: 360, w: 300, h: 64, radius: theme.radius, text_size: 26,
       text: t(f ? 'fast.end' : 'fast.start'), color: theme.text, normal_color: f ? theme.danger : theme.accent, press_color: theme.track,
       click_func: () => {
         // Cache otimista: a tela já reflete a ação antes do sync confirmar.
         if (f) { push('fast_end', {}); T.fasting = null } else {
-          const target = new Date(Date.now() + prefs.hours * 3600e3).toISOString()
+          const hours = Number(prefs.hours) || 16
+          const target = new Date(Date.now() + hours * 3600e3).toISOString()
           push('fast_start', { fasting_type: prefs.fasting_type, target_end_time: target })
           T.fasting = { start_time: new Date().toISOString(), target_end_time: target, fasting_type: prefs.fasting_type, status: 'active' }
         }
@@ -51,5 +64,8 @@ Page(BasePage({
         replace({ url: 'page/fasting' })
       } })
   },
-  onDestroy() { clearInterval(this.timer) }
+  onDestroy() {
+    if (this.timer) clearInterval(this.timer)
+    offDigitalCrown?.()
+  }
 }))

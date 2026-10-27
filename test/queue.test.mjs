@@ -112,6 +112,17 @@ test('addWater sem cache (ou sem water) só enfileira e devolve o tamanho da fil
   assert.equal(queue().length, 2)
 })
 
+test('addWater com container sem volume_ml usa volume e trata water.ml nulo sem NaN', async () => {
+  reset()
+  const q = await load('utils/queue.js')
+  q.saveToday({ water: { ml: null, goal_ml: 2000 } })
+  const n = q.addWater({ id: 9, volume: 300 }, 1)
+  assert.equal(q.loadToday().water.ml, 300)
+  assert.equal(n, 1)
+  const [item] = queue()
+  assert.deepEqual(item.data, { container_id: 9, change: 1 })
+})
+
 // Data local YYYY-MM-DD derivada do próprio ts ISO, para checar o campo date contra o relógio local.
 function localDate(iso) {
   const d = new Date(iso)

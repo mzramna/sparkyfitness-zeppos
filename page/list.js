@@ -1,9 +1,10 @@
 import * as hmUI from '@zos/ui'
 import { push as navigate, replace } from '@zos/router'
-import { showToast } from '@zos/interaction'
+import { showToast, onDigitalCrown, offDigitalCrown, onGesture, offGesture, GESTURE_LEFT, GESTURE_RIGHT } from '@zos/interaction'
 import { getText as t } from '@zos/i18n'
 import { BasePage } from '@zeppos/zml/base-page'
 import { loadToday, saveToday, push, addWater } from '../utils/queue'
+import { scheduleReminders } from '../utils/reminders'
 import { hhmm } from '../utils/time'
 import { theme } from '../utils/theme'
 const go = (key, extra) => () => navigate({ url: 'page/list', params: JSON.stringify({ key, ...extra }) })
@@ -15,7 +16,11 @@ const markDone = (d) => {
   if (!T) return
   T.doses.forEach((x) => { if (x.medication_id === d.medication_id && x.schedule_id === d.schedule_id && x.scheduled_for === d.scheduled_for) x.done = true })
   saveToday(T)
+  try { scheduleReminders(T.doses) } catch (e) {}
 }
+
+const TABS = ['water', 'meds', 'cycle', 'mood', 'symptom', 'food']
+const PAGE_SIZE = 5
 
 // rows(T, page) -> [{ text, color?, pick? }]; pick devolve o tamanho da fila quando registra algo.
 // leaf: depois de registrar, recarrega a lista pai (key) com o cache atualizado.
@@ -45,7 +50,10 @@ const SCREENS = {
 }
 
 Page(BasePage({
-  onInit(p) { this.params = JSON.parse(p || '{}') },
+  onInit(p) {
+    this.params = JSON.parse(p || '{}')
+    this.page = Number(this.params.page) || 0
+  },
   build() {
     const s = SCREENS[this.params.key]
     const T = loadToday()
@@ -55,15 +63,35 @@ Page(BasePage({
     // Ícone centralizado acima do título; no círculo da tela o topo é estreito, então fica bem junto da borda.
     if (s) c.createWidget(hmUI.widget.IMG, { x: 220, y: 4, src: s.icon })
     text(44, { text: t(`list.${this.params.key}`), text_size: 32 })
-    const rows = T ? s.rows(T, this) : []
-    if (!rows.length) {
+    const allRows = T && s ? s.rows(T, this) : []
+    if (!allRows.length) {
       text(180, { h: 120, text_size: 24, color: theme.muted, text_style: hmUI.text_style.WRAP,
         text: t(T ? 'list.empty' : 'dash.syncToDownload') })
+      this.initInteractions(1)
       return
     }
+
+    const totalPages = Math.max(1, Math.ceil(allRows.length / PAGE_SIZE))
+    if (this.page >= totalPages) this.page = totalPages - 1
+    const pagedRows = allRows.slice(this.page * PAGE_SIZE, (this.page + 1) * PAGE_SIZE)
+
     let y = 100
-    if (s.head) { this.head = text(y, { text: s.head(), color: theme.water }); y += 60 }
-    rows.forEach((r) => {
+    if (s.head) { this.head = text(y, { text: s.head(), color: theme.water }); y += 50 }
+
+    if (totalPages > 1 || TABS.includes(this.params.key)) {
+      const tabIdx = TABS.indexOf(this.params.key)
+      const pageInfo = totalPages > 1 ? `${this.page + 1}/${totalPages}` : `${tabIdx + 1}/${TABS.length}`
+      c.createWidget(hmUI.widget.BUTTON, { x: 50, y, w: 70, h: 40, radius: 20, text: '◀', text_size: 22,
+        color: theme.muted, normal_color: theme.card, press_color: theme.track,
+        click_func: () => this.prevPage(totalPages) })
+      text(y + 4, { x: 120, w: 240, h: 32, text_size: 20, color: theme.muted, text: pageInfo })
+      c.createWidget(hmUI.widget.BUTTON, { x: 360, y, w: 70, h: 40, radius: 20, text: '▶', text_size: 22,
+        color: theme.muted, normal_color: theme.card, press_color: theme.track,
+        click_func: () => this.nextPage(totalPages) })
+      y += 50
+    }
+
+    pagedRows.forEach((r) => {
       c.createWidget(hmUI.widget.BUTTON, { x: 50, y, w: 380, h: 62, radius: theme.radius, text: r.text, text_size: 24,
         color: r.color || theme.text, normal_color: theme.card, press_color: theme.track,
         click_func: () => {
@@ -75,5 +103,51 @@ Page(BasePage({
         } })
       y += 72
     })
+
+    this.initInteractions(totalPages)
+  },
+  prevPage(totalPages) {
+    if (this.page > 0) {
+      replace({ url: 'page/list', params: JSON.stringify({ ...this.params, page: this.page - 1 }) })
+    } else {
+      const idx = TABS.indexOf(this.params.key)
+      if (idx > 0) {
+        replace({ url: 'page/list', params: JSON.stringify({ key: TABS[idx - 1], page: 0 }) })
+      } else if (idx === 0) {
+        replace({ url: 'page/list', params: JSON.stringify({ key: TABS[TABS.length - 1], page: 0 }) })
+      }
+    }
+  },
+  nextPage(totalPages) {
+    if (this.page < totalPages - 1) {
+      replace({ url: 'page/list', params: JSON.stringify({ ...this.params, page: this.page + 1 }) })
+    } else {
+      const idx = TABS.indexOf(this.params.key)
+      if (idx >= 0) {
+        replace({ url: 'page/list', params: JSON.stringify({ key: TABS[(idx + 1) % TABS.length], page: 0 }) })
+      }
+    }
+  },
+  initInteractions(totalPages) {
+    onGesture?.({
+      callback: (event) => {
+        if (event === GESTURE_LEFT) { this.nextPage(totalPages); return true }
+        // Na primeira página o deslize para a direita volta (padrão do sistema); interceptar prendia o usuário.
+        if (event === GESTURE_RIGHT && this.page > 0) { this.prevPage(totalPages); return true }
+        return false
+      }
+    })
+    // A coroa dispara vários eventos por giro; sem trava cada um fazia um replace() e empilhava rebuilds.
+    onDigitalCrown?.({
+      callback: (key, degree) => {
+        if (this.navigating) return
+        if (degree > 0 && this.page < totalPages - 1) { this.navigating = true; this.nextPage(totalPages) }
+        else if (degree < 0 && this.page > 0) { this.navigating = true; this.prevPage(totalPages) }
+      }
+    })
+  },
+  onDestroy() {
+    offGesture?.()
+    offDigitalCrown?.()
   }
 }))

@@ -16,10 +16,28 @@ export function load(entry, stubs = {}) {
   const url = pathToFileURL(abs(entry)).href
   const hasStubs = Object.keys(stubs).length > 0
   if (!hasStubs && !REGISTERS.test(readFileSync(abs(entry), 'utf8'))) return import(url)
+  if (!hasStubs) return loadOnce(url)
   const dir = mkdtempSync(join(tmpdir(), 'zos-stubs-'))
   for (const [name, src] of Object.entries(stubs)) writeFileSync(join(dir, `${name}.js`), src)
   const q = new URLSearchParams({ r: String(++n), stubs: hasStubs ? pathToFileURL(dir).href.replace('file://', '') : '' })
   return import(`${url}?${q}`)
+}
+
+// Sem stubs: importa o módulo uma única vez (sem ?r=N) e re-registra uma cópia da definição
+// a cada load — evita que a cobertura do Node some várias instâncias do mesmo arquivo.
+const KEYS = ['page', 'app', 'side', 'service', 'setting']
+const cache = new Map()
+async function loadOnce(url) {
+  const Z = globalThis.__zos
+  if (!cache.has(url)) {
+    const before = Object.fromEntries(KEYS.map((k) => [k, Z[k]]))
+    const mod = await import(url)
+    const key = KEYS.find((k) => Z[k] !== before[k])
+    cache.set(url, { mod, key, def: key ? Z[key] : undefined })
+  }
+  const { mod, key, def } = cache.get(url)
+  if (key) Z[key] = { ...def }
+  return mod
 }
 
 // Estado fake novo a cada teste. Páginas/serviços registram-se via Page()/AppSideService()/AppService().
@@ -72,7 +90,10 @@ export function reset({ settings = {}, routes = {}, sensors = {} } = {}) {
 
 // Encontra widget por texto e dispara o clique.
 export function tap(Z, text) {
-  const w = Z.widgets.find((x) => x.props.text === text || String(x.props.text).startsWith(text))
+  const w = Z.widgets.find((x) =>
+    text instanceof RegExp ? text.test(x.props.text) :
+    (x.props.text === text || String(x.props.text).startsWith(text) || String(x.props.text).includes(text))
+  )
   if (!w) throw new Error(`widget "${text}" não encontrado: ${Z.widgets.map((x) => x.props.text).filter(Boolean).join(' | ')}`)
   ;(w.props.click_func || w.props.on_CLICK_UP)(w)
   return w
